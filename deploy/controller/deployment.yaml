@@ -1,0 +1,31 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    name: cloudprovider-secret-controller
+  name: cloudprovider-secret-controller
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: cloudprovider-secret-controller
+  template:
+    metadata:
+      labels:
+        name: cloudprovider-secret-controller
+    spec:
+      containers:
+      - command:
+        - "./manager"
+        - "-enable-leader-election"
+        image: quay.io/jpacker/cloudprovider-secret-controller:0.1
+        imagePullPolicy: Always
+        name: cloudprovider-secret-controller
+        resources:
+          limits:
+            cpu: "10m"
+            memory: "45Mi"
+          requests:
+            cpu: "3m"                     # Runs < 2m most of the time
+            memory: "31Mi"                # Runs between 30-32Mi
+      serviceAccountName: cloudprovider-secret-controller

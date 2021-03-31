@@ -1,0 +1,23 @@
+-include /opt/build-harness/Makefile.prow
+
+.PHONY: push
+push: build
+	docker push ${REPO_URL}/cloudprovider-secret-controller:${VERSION}
+	docker tag ${REPO_URL}/cloudprovider-secret-controller:${VERSION} ${REPO_URL}/cloudprovider-secret-controller:latest
+	docker push ${REPO_URL}/cloudprovider-secret-controller:latest
+	#./deploy/controller/process.sh
+
+.PHONY: compile
+compile:
+	go mod vendor
+	go mod tidy
+	GOFLAGS="" go build -o build/_output/manager ./cmd/manager/main.go
+
+.PHONY: build
+build: 
+	docker build -f Dockerfile.prow . -t ${REPO_URL}/cloudprovider-secret-controller:${VERSION}
+
+.PHONY: unit-tests
+unit-tests:
+	GOFLAGS="" go test -timeout 120s -v ./controllers
+

@@ -1,0 +1,13 @@
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+    name: cloudprovider-secret-controller
+subjects:
+- kind: ServiceAccount
+  name: cloudprovider-secret-controller
+  namespace: open-cluster-management            ## CHANGE: ACM namespace
+roleRef:
+  kind: ClusterRole
+  name: cloudprovider-secret-controller
+  apiGroup: rbac.authorization.k8s.io
