@@ -12,14 +12,19 @@ Go to the [Contributing guide](CONTRIBUTING.md) to learn how to get involved.
 
 - ### Steps for development: 
 
-  - Compile the code by running `make compile`
-  - Run the controller manually `./build/_output/provider-credential-controller`
-  - Run the go file manually `go run ./cmd/manager/main.go`
+  - Compile the code by running
+    ```bash
+    make compile
 
-
+    ./build/_output/manager  # Execute the binary
+  ```
+  - Run the go file manually
+    ```bash
+    go run ./cmd/manager/main.go
+    ```
   - Push an image to your repository:
     ```bash
-    export VERSION=0.1
+    export VERSION=0.1 # Specify a version, must be edited in ./deploy/controller/deployment.yaml
     export REPO_URL=quay.io/MY_ORGANIZATION_OR_USERNAME
 
     make push
@@ -34,11 +39,6 @@ Go to the [Contributing guide](CONTRIBUTING.md) to learn how to get involved.
     ```
     - Even though this controller deploys as a single pod, it uses leader election to make sure only one instance is ever running.
     - Even if the controller is interupted while updating secrets, when it restarts, it will continue the process until all copied secrets are updated with the new values from the Provider Credential secret.
-  - To launch from the command line:
-    ```bash
-    go run ./cmd/manager
-    ```
-
 
 - ### Steps for testing:
 
@@ -49,7 +49,7 @@ Go to the [Contributing guide](CONTRIBUTING.md) to learn how to get involved.
 
   - Running scale testing (3000 copied secrets)
     - Connect to an OpenShift cluster
-    - Make sure either the controller is deployed via the provided kubernetes manifest, or launched from the command line
+    - Make sure either the controller is deployed, [see Steps for deployment](#Steps-for-deployment) or launched from the command line, [see Steps for development](#Steps-for-development)
       ```bash
       # Create namespace
       oc new-project providers
