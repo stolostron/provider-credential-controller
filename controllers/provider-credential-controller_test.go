@@ -42,13 +42,13 @@ func getCPSecret() corev1.Secret {
 		},
 	}
 }
-func GetCloudProviderSecretReconciler() *CloudProviderSecretReconciler {
+func GetProviderCredentialSecretReconciler() *ProviderCredentialSecretReconciler {
 
 	ctrl.SetLogger(zap.New(zap.UseDevMode(true), zap.Level(zapcore.InfoLevel)))
 
-	return &CloudProviderSecretReconciler{
+	return &ProviderCredentialSecretReconciler{
 		Client: clientfake.NewFakeClientWithScheme(s),
-		Log:    ctrl.Log.WithName("controllers").WithName("CloudProviderSecretReconciler"),
+		Log:    ctrl.Log.WithName("controllers").WithName("ProviderCredentialSecretReconciler"),
 		Scheme: s,
 	}
 }
@@ -65,11 +65,11 @@ func getRequest() ctrl.Request {
 // Since we should not reconcile on delete we should not get to this
 func TestReconcileNoSecret(t *testing.T) {
 
-	cpsr := GetCloudProviderSecretReconciler()
+	cpsr := GetProviderCredentialSecretReconciler()
 
 	_, err := cpsr.Reconcile(context.Background(), getRequest())
 
-	assert.NotNil(t, err, "Not nil, when Cloud Provider secret does not exist")
+	assert.NotNil(t, err, "Not nil, when Provider secret does not exist")
 	t.Logf("Error: %v", err)
 }
 
@@ -80,13 +80,13 @@ func TestReconcileNewCPSecret(t *testing.T) {
 		providerLabel: "ans",
 	}
 
-	cpsr := GetCloudProviderSecretReconciler()
+	cpsr := GetProviderCredentialSecretReconciler()
 	cpsr.Client = clientfake.NewFakeClient(&cps)
 
 	// Test the function
 	_, err := cpsr.Reconcile(context.Background(), getRequest())
 
-	assert.Nil(t, err, "Nil, when Cloud Provider secret found, and hash is set")
+	assert.Nil(t, err, "Nil, when Provider secret found, and hash is set")
 
 	// Check that the credential-hash was set
 	cpsr.Get(context.Background(), getRequest().NamespacedName, &cps)
@@ -102,7 +102,7 @@ func TestReconcileNoCPSecretChange(t *testing.T) {
 		providerLabel: "ans",
 	}
 
-	cpsr := GetCloudProviderSecretReconciler()
+	cpsr := GetProviderCredentialSecretReconciler()
 	cpsr.Client = clientfake.NewFakeClient(&cps)
 
 	// Test the function try #1 (Initializes credential-hash)
@@ -141,7 +141,7 @@ func TestReconcileChildSecrets(t *testing.T) {
 		providerLabel: "ans",
 	}
 
-	cpsr := GetCloudProviderSecretReconciler()
+	cpsr := GetProviderCredentialSecretReconciler()
 	cpsr.Client = clientfake.NewFakeClient(&cps)
 
 	// Try #1 initializes the credential-hash
@@ -186,7 +186,7 @@ func TestReconcileChangeWithNoCopiedSecrets(t *testing.T) {
 		providerLabel: "ans",
 	}
 
-	cpsr := GetCloudProviderSecretReconciler()
+	cpsr := GetProviderCredentialSecretReconciler()
 	cpsr.Client = clientfake.NewFakeClient(&cps)
 
 	// Try #1 initializes the credential-hash
@@ -213,7 +213,7 @@ func TestReconcileChildSecretsInjectionAttack(t *testing.T) {
 		providerLabel: "ans",
 	}
 
-	cpsr := GetCloudProviderSecretReconciler()
+	cpsr := GetProviderCredentialSecretReconciler()
 	cpsr.Client = clientfake.NewFakeClient(&cps)
 
 	// Try #1 initializes the credential-hash

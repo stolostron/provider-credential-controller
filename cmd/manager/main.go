@@ -6,7 +6,7 @@ import (
 	"flag"
 	"os"
 
-	"github.com/open-cluster-management/cloudprovider-secret-controller/controllers"
+	"github.com/open-cluster-management/provider-credential-controller/controllers"
 	"go.uber.org/zap/zapcore"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -45,19 +45,19 @@ func main() {
 		MetricsBindAddress: metricsAddr,
 		Port:               9443,
 		LeaderElection:     enableLeaderElection,
-		LeaderElectionID:   "cloudprovider-secret-controller.open-cluster-management.io",
+		LeaderElectionID:   "provider-credential-controller.open-cluster-management.io",
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
 		os.Exit(1)
 	}
 
-	if err = (&controllers.CloudProviderSecretReconciler{
+	if err = (&controllers.ProviderCredentialSecretReconciler{
 		Client: mgr.GetClient(),
-		Log:    ctrl.Log.WithName("controllers").WithName("CloudProviderSecretReconciler"),
+		Log:    ctrl.Log.WithName("controllers").WithName("ProviderCredentialSecretReconciler"),
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "CloudProviderSecretReconciler")
+		setupLog.Error(err, "unable to create controller", "controller", "ProviderCredentialSecretReconciler")
 		os.Exit(1)
 	}
 	// +kubebuilder:scaffold:builder

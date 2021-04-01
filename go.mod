@@ -1,9 +1,10 @@
-module github.com/open-cluster-management/cloudprovider-secret-controller
+module github.com/open-cluster-management/provider-credential-controller
 
 go 1.15
 
 require (
 	github.com/go-logr/logr v0.4.0
+	github.com/open-cluster-management/library-go v0.0.0-20210325215722-d989f79194f6
 	github.com/stretchr/testify v1.6.1
 	go.uber.org/zap v1.15.0
 	k8s.io/api v0.20.5

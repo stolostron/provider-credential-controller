@@ -2,9 +2,9 @@
 
 .PHONY: push
 push: build
-	docker push ${REPO_URL}/cloudprovider-secret-controller:${VERSION}
-	docker tag ${REPO_URL}/cloudprovider-secret-controller:${VERSION} ${REPO_URL}/cloudprovider-secret-controller:latest
-	docker push ${REPO_URL}/cloudprovider-secret-controller:latest
+	docker push ${REPO_URL}/provider-credential-controller:${VERSION}
+	docker tag ${REPO_URL}/provider-credential-controller:${VERSION} ${REPO_URL}/provider-credential-controller:latest
+	docker push ${REPO_URL}/provider-credential-controller:latest
 	#./deploy/controller/process.sh
 
 .PHONY: compile
@@ -15,9 +15,24 @@ compile:
 
 .PHONY: build
 build: 
-	docker build -f Dockerfile.prow . -t ${REPO_URL}/cloudprovider-secret-controller:${VERSION}
+	docker build -f Dockerfile.prow . -t ${REPO_URL}/provider-credential-controller:${VERSION}
 
 .PHONY: unit-tests
 unit-tests:
-	GOFLAGS="" go test -timeout 120s -v ./controllers
+	GOFLAGS="" go test -timeout 120s -v -short ./controllers
 
+.PHONY: scale-up
+scale-up:
+	go test ./controllers/ -run TestInitializeSecrets -timeout 1000s -v -count=1
+
+.PHONY: scale-down
+scale-down:
+	go test ./controllers/ -run TestCleanUpSecrets -timeout 1000s -v -count=1
+
+.PHONY: scale-test
+scale-test:
+	go test ./controllers/ -run TestUpdateProviderSecret -timeout 30s -v -count=1
+	go test ./controllers/ -run TestUpdateProviderSecretTest2 -timeout 30s -v -count=1
+	go test ./controllers/ -run TestUpdateProviderSecret -timeout 30s -v -count=1
+	go test ./controllers/ -run TestUpdateProviderSecretTest2 -timeout 30s -v -count=1
+	
