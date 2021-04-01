@@ -17,12 +17,14 @@ Go to the [Contributing guide](CONTRIBUTING.md) to learn how to get involved.
     make compile
 
     ./build/_output/manager  # Execute the binary
-  ```
-  - Run the go file manually
+    ```
+  
+  - Run the _go_ file manually
     ```bash
     go run ./cmd/manager/main.go
     ```
-  - Push an image to your repository:
+  
+  - Push an image to your repository
     ```bash
     export VERSION=0.1 # Specify a version, must be edited in ./deploy/controller/deployment.yaml
     export REPO_URL=quay.io/MY_ORGANIZATION_OR_USERNAME
