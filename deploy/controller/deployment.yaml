@@ -14,13 +14,34 @@ spec:
       labels:
         name: provider-credential-controller
     spec:
+      tolerations:
+      - key: dedicated
+        operator: Exists
+        effect: NoSchedule
+      - effect: NoSchedule 
+        key: node-role.kubernetes.io/infra 
+        operator: Exists
+      serviceAccountName: provider-credential-controller
+      hostNetwork: false
+      hostPID: false
+      hostIPC: false
+      securityContext:
+        runAsNonRoot: true
+
       containers:
       - command:
         - "./manager"
         - "-enable-leader-election"
-        image: quay.io/jpacker/provider-credential-controller:0.1
+        image: registry.ci.openshift.org/open-cluster-management/2.3:provider-credential-controller
         imagePullPolicy: Always
         name: provider-credential-controller
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          privileged: false
+          readOnlyRootFilesystem: true
         resources:
           limits:
             cpu: "20m"
@@ -28,4 +49,3 @@ spec:
           requests:
             cpu: "3m"
             memory: "65Mi"
-      serviceAccountName: provider-credential-controller
