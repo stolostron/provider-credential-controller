@@ -36,12 +36,12 @@ type ProviderCredentialSecretReconciler struct {
 	Scheme *runtime.Scheme
 }
 
-func generateHash(valueBytes []byte) []byte {
+func generateHash(valueBytes []byte) ([]byte, error) {
 
 	hash.Reset()
-	hash.Write(valueBytes)
+	_, err := hash.Write(valueBytes)
 
-	return hash.Sum(nil)
+	return hash.Sum(nil), err
 }
 
 func (r *ProviderCredentialSecretReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
@@ -66,12 +66,16 @@ func (r *ProviderCredentialSecretReconciler) Reconcile(ctx context.Context, req 
 	log.V(1).Info("Calculate the current hash for provider credential secret " + secret.Namespace + "/" + secret.Name)
 	secretBytes, err := json.Marshal(secretData)
 	if err != nil {
-		log.Error(err, "Failed to marshal secret data josn for SHA256 hasing")
+		log.Error(err, "Failed to marshal secret data json for SHA256 hashing")
 		return ctrl.Result{}, err
 	}
 
 	// Generate a hash from the Provider secret Data pairs
-	currentHash := generateHash(secretBytes)
+	currentHash, err := generateHash(secretBytes)
+	if err != nil {
+		log.Error(err, "Failed to hash secret data")
+		return ctrl.Result{}, err
+	}
 
 	log.V(1).Info("ORIGINAL Provider hash: " + hex.EncodeToString(originalHash))
 	log.V(1).Info("NEW Provider hash: " + hex.EncodeToString(currentHash))
@@ -112,7 +116,12 @@ func (r *ProviderCredentialSecretReconciler) Reconcile(ctx context.Context, req 
 			   If they differ, someone may have attempted to falsify this copied secret so
 			   we will log a warning and SKIP updating this secret with the new credentials.
 			*/
-			childHash := generateHash(secretBytes)
+			childHash, err := generateHash(secretBytes)
+			if err != nil {
+				log.Error(err, "Failed to hash secret data")
+				return ctrl.Result{}, err
+			}
+
 			log.V(1).Info("Child hash: " + hex.EncodeToString(childHash))
 
 			// If both hashes match, the copied secret is from the Provider
@@ -158,7 +167,7 @@ func (r *ProviderCredentialSecretReconciler) Reconcile(ctx context.Context, req 
 	}
 	patchBytes, _ := json.Marshal(patch)
 
-	r.Patch(context.Background(), &corev1.Secret{
+	err = r.Patch(context.Background(), &corev1.Secret{
 		ObjectMeta: v1.ObjectMeta{
 			Name:      secret.Name,
 			Namespace: secret.Namespace,
