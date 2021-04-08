@@ -92,7 +92,10 @@ func (r *ProviderCredentialSecretReconciler) Reconcile(ctx context.Context, req 
 
 		// Retreives all copied secrets that have labels pointing to this Provider
 		secrets := &corev1.SecretList{}
-		err = r.List(ctx, secrets, client.MatchingLabels{cloneFromLabelNamespace: req.Namespace, cloneFromLabelName: req.Name})
+		err = r.List(
+			ctx,
+			secrets,
+			client.MatchingLabels{cloneFromLabelNamespace: req.Namespace, cloneFromLabelName: req.Name})
 
 		// Check if we found any copies
 		secretCount := len(secrets.Items)
@@ -103,7 +106,10 @@ func (r *ProviderCredentialSecretReconciler) Reconcile(ctx context.Context, req 
 		log.V(1).Info("Found " + strconv.Itoa(secretCount) + " copies")
 
 		// Loop through all retreived copies
-		for _, childSecret := range secrets.Items {
+
+		for i := range secrets.Items {
+
+			childSecret := secrets.Items[i]
 
 			secretBytes, err := json.Marshal(childSecret.Data)
 			if err != nil {
@@ -138,7 +144,10 @@ func (r *ProviderCredentialSecretReconciler) Reconcile(ctx context.Context, req 
 
 				// The hashes don't match, so this copied secret can NOT be trusted
 			} else {
-				log.V(0).Info("|--X Did not update secret: " + childSecret.Namespace + "/" + childSecret.Name + ", hash did not match")
+				log.V(0).Info("|--X Did not update secret: " +
+					childSecret.Namespace + "/" +
+					childSecret.Name +
+					", hash did not match")
 			}
 		}
 
