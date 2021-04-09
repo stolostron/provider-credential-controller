@@ -31,7 +31,7 @@ func getChildSecret(secretName string) corev1.Secret {
 }
 
 func skipShort(t *testing.T) {
-	if !testing.Short() {
+	if testing.Short() {
 		t.Skip("Skipping test in short mode.")
 	}
 }
