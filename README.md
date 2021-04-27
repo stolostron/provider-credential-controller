@@ -57,6 +57,8 @@ Go to the [Contributing guide](CONTRIBUTING.md) to learn how to get involved.
       oc new-project providers
 
       make scale-up   # This creates a fake Ansible Provider Secret, and makes 3000 copies
+                      # To changes the number of copies edit ./controller/provider-credential-controller_scale_test.go
+                      #     const SecretCount = 3000
 
       make scale-test # This makes FOUR token changes to the Provider secret without waiting
 
