@@ -75,24 +75,51 @@ func TestReconcileNoSecret(t *testing.T) {
 
 func TestReconcileNewCPSecret(t *testing.T) {
 
-	cps := getCPSecret()
-	cps.ObjectMeta.Labels = map[string]string{
-		providerLabel: "ans",
+	// Missing "bm"
+	for _, providerName := range []string{"ans", "aws", "gcp", "vmw", "ost", "azr"} {
+
+		cps := getCPSecret()
+		cps.ObjectMeta.Labels = map[string]string{
+			providerLabel: providerName,
+		}
+		cps.Data["metadata"] = []byte("fakeKey: fakeValue\n")
+
+		cpsr := GetProviderCredentialSecretReconciler()
+		cpsr.Client = clientfake.NewFakeClient(&cps)
+
+		// Test the function
+		_, err := cpsr.Reconcile(context.Background(), getRequest())
+
+		assert.Nil(t, err, "Nil, when Provider secret found, and hash is set")
+
+		// Check that the credential-hash was set
+		cpsr.Get(context.Background(), getRequest().NamespacedName, &cps)
+
+		assert.NotNil(t, cps.Data[CredHash], CredHash+" should not be nil")
+		t.Logf("Hash: %v", cps.Data[CredHash])
 	}
+}
 
-	cpsr := GetProviderCredentialSecretReconciler()
-	cpsr.Client = clientfake.NewFakeClient(&cps)
+func TestReconcileInvalidProviderLabel(t *testing.T) {
 
-	// Test the function
-	_, err := cpsr.Reconcile(context.Background(), getRequest())
+	// Missing "bm"
+	for _, providerName := range []string{"invalid"} {
 
-	assert.Nil(t, err, "Nil, when Provider secret found, and hash is set")
+		cps := getCPSecret()
+		cps.ObjectMeta.Labels = map[string]string{
+			providerLabel: providerName,
+		}
+		cps.Data["metadata"] = []byte("fakeKey: fakeValue\n")
 
-	// Check that the credential-hash was set
-	cpsr.Get(context.Background(), getRequest().NamespacedName, &cps)
+		cpsr := GetProviderCredentialSecretReconciler()
+		cpsr.Client = clientfake.NewFakeClient(&cps)
 
-	assert.NotNil(t, cps.Data[CredHash], CredHash+" should not be nil")
-	t.Logf("Hash: %v", cps.Data[CredHash])
+		// Test the function
+		_, err := cpsr.Reconcile(context.Background(), getRequest())
+
+		assert.NotNil(t, err, "Not nil, when Provider secret found, but label is invalid")
+		t.Logf("error mesage: %v", err)
+	}
 }
 
 func TestReconcileNoCPSecretChange(t *testing.T) {

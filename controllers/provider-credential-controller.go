@@ -8,9 +8,11 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"strconv"
 
 	"github.com/go-logr/logr"
+	"gopkg.in/yaml.v2"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -59,9 +61,12 @@ func (r *ProviderCredentialSecretReconciler) Reconcile(ctx context.Context, req 
 	// This is the hash for the original secret.Data
 	originalHash := secret.Data[CredHash]
 
-	// This is the new current secret.Data
-	secretData := secret.Data
-	delete(secretData, CredHash)
+	//We need to extract the specific secret.Data
+	secretData, err := extractImportantData(secret)
+	if err != nil {
+		log.Error(err, "Failed to extract secret.Data[metadata] from "+secret.Namespace+"/"+secret.Name)
+		return ctrl.Result{}, err
+	}
 
 	log.V(1).Info("Calculate the current hash for provider credential secret " + secret.Namespace + "/" + secret.Name)
 	secretBytes, err := json.Marshal(secretData)
@@ -196,7 +201,7 @@ func (r *ProviderCredentialSecretReconciler) SetupWithManager(mgr ctrl.Manager) 
 		For(&corev1.Secret{}).WithEventFilter(predicate.Funcs{
 		CreateFunc: func(e event.CreateEvent) bool {
 			switch e.Object.GetLabels()[providerLabel] {
-			case "ans": //"aws", "gcp", "vmw", "azr", "bm"
+			case "ans", "aws", "gcp", "vmw", "azr", "ost": //, "bm"
 				return true
 			}
 			// Add the hash check here??
@@ -205,7 +210,7 @@ func (r *ProviderCredentialSecretReconciler) SetupWithManager(mgr ctrl.Manager) 
 		},
 		UpdateFunc: func(e event.UpdateEvent) bool {
 			switch e.ObjectNew.GetLabels()[providerLabel] {
-			case "ans": // "aws", "gcp", "vmw", "azr", "bm"
+			case "ans", "aws", "gcp", "vmw", "azr", "ost": //, "bm"
 				return true
 			}
 			return false
@@ -216,4 +221,68 @@ func (r *ProviderCredentialSecretReconciler) SetupWithManager(mgr ctrl.Manager) 
 	}).WithOptions(controller.Options{
 		MaxConcurrentReconciles: 1, // This is the default
 	}).Complete(r)
+}
+
+func extractImportantData(credentialSecret corev1.Secret) (map[string][]byte, error) {
+
+	returnData := map[string][]byte{}
+
+	providerMetadata, err := extractCredentialFromMetadata(credentialSecret.Data)
+
+	//_, err := extractCredentialFromMetadata(credentialSecret.Data)
+
+	// NOTE: The hash is dependent on the KEY order.  Keys are sorted alphabetically when
+	//       kubernetes encodes from secret.stringData to secret.Data
+	credType := credentialSecret.ObjectMeta.Labels["cluster.open-cluster-management.io/provider"]
+	switch credType {
+
+	case "ans":
+		returnData = credentialSecret.Data
+		delete(returnData, CredHash)
+
+		err = nil
+
+	case "aws":
+
+		returnData["aws_access_key_id"] = []byte(providerMetadata["awsAccessKeyID"])
+		returnData["aws_secret_access_key"] = []byte(providerMetadata["awsSecretAccessKeyID"])
+
+	case "azr":
+
+		// Build the osServicePrincipal json string as a byte slice
+		returnData["osServicePrincipal.json"] = []byte("{\"clientId\": \"" + string(providerMetadata["clientId"]) +
+			"\", \"clientSecret\": \"" + string(providerMetadata["clientSecret"]) + "\", \"tenantId\": \"" +
+			string(providerMetadata["tenantId"]) + "\", \"subscriptionId\": \"" +
+			string(providerMetadata["subscriptionid"]) + "\"}")
+
+	case "gcp":
+
+		returnData["osServiceAccount.json"] = []byte(providerMetadata["gcServiceAccountKey"])
+
+	case "vmw":
+
+		returnData["password"] = []byte(providerMetadata["password"])
+		returnData["username"] = []byte(providerMetadata["username"])
+
+	case "ost":
+
+		returnData["cloud"] = []byte(providerMetadata["openstackCloud"])
+		returnData["clouds.yaml"] = []byte(providerMetadata["openstackCloudsYaml"])
+
+	default:
+		err = errors.New("Label:cluster.open-cluster-management.io/provider is not supported for value: " + credType)
+	}
+
+	return returnData, err
+}
+
+func extractCredentialFromMetadata(secretData map[string][]byte) (map[string]string, error) {
+	if bytes.Compare(secretData["metadata"], []byte{}) == 0 {
+		return nil, errors.New("Did not find any credential information with key: metadata")
+	}
+	providerMetadata := map[string]string{}
+
+	err := yaml.Unmarshal(secretData["metadata"], &providerMetadata)
+
+	return providerMetadata, err
 }
