@@ -22,8 +22,8 @@ func init() {
 func getChildSecret(secretName string) corev1.Secret {
 	copiedSecret := getCPSecret()
 	copiedSecret.ObjectMeta.Labels = map[string]string{
-		cloneFromLabelNamespace: CPSNamespace,
-		cloneFromLabelName:      CPSName,
+		copiedFromNamespaceLabel: CPSNamespace,
+		copiedFromNameLabel:      CPSName,
 	}
 	copiedSecret.Namespace = "default"
 	copiedSecret.Name = secretName
@@ -87,8 +87,8 @@ func TestCleanUpSecrets(t *testing.T) {
 
 	copiedSecret := getCPSecret()
 	copiedSecret.ObjectMeta.Labels = map[string]string{
-		cloneFromLabelNamespace: providerSecret.Namespace,
-		cloneFromLabelName:      providerSecret.Name,
+		copiedFromNamespaceLabel: providerSecret.Namespace,
+		copiedFromNameLabel:      providerSecret.Name,
 	}
 	copiedSecret.Namespace = "default"
 

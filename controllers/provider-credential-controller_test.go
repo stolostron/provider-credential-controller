@@ -23,6 +23,8 @@ const ClusterNamespace1 = "cluster1"
 const ClusterNamespace2 = "cluster2"
 const TOKEN = "token"
 const HOST = "host"
+const userValue = "https://hello.io"
+const tokenValue = "ABDCDEFJD333299943mmienw"
 
 var s = scheme.Scheme
 
@@ -31,19 +33,84 @@ func init() {
 }
 
 func getCPSecret() corev1.Secret {
+	var dataValue = map[string][]byte{}
+	dataValue[HOST] = []byte(userValue)
+	dataValue[TOKEN] = []byte(tokenValue)
+
+	return getCPSecretWithKeys(dataValue)
+}
+
+func getCopiedSecretForProvider(credentialType string) corev1.Secret {
+	var dataValue = map[string][]byte{}
+	switch credentialType {
+	case "aws":
+		dataValue["aws_access_key_id"] = []byte(userValue)
+		dataValue["aws_secret_access_key"] = []byte(tokenValue)
+
+	case "azr":
+		dataValue["osServicePrincipal.json"] = []byte("{\"clientId\": \"" + tokenValue +
+			"ID\", \"clientSecret\": \"" + tokenValue + "SECRET\", \"tenantId\": \"" +
+			tokenValue + "TENANT\", \"subscriptionId\": \"" +
+			tokenValue + "SUBSCRIPTION\"}")
+
+	case "gcp":
+		dataValue["osServiceAccount.json"] = []byte(tokenValue)
+	case "vmw":
+		dataValue["password"] = []byte(tokenValue)
+		dataValue["username"] = []byte(userValue)
+	case "ost":
+		dataValue["cloud"] = []byte(tokenValue)
+		dataValue["clouds.yaml"] = []byte(userValue)
+	default:
+		panic("Provider did not match " + credentialType)
+	}
+	return getCPSecretWithKeys(dataValue)
+
+}
+
+func getCPSecretWithKeys(dataValue map[string][]byte) corev1.Secret {
+
 	return corev1.Secret{
 		ObjectMeta: v1.ObjectMeta{
 			Namespace: CPSNamespace,
 			Name:      CPSName,
 		},
+		Data: dataValue,
+	}
+}
+
+func getCPSecretMetadata(credentialType string) corev1.Secret {
+	var metadataValue string
+	switch credentialType {
+	case "aws":
+		metadataValue = "awsAccessKeyID: " + userValue + "\n" + "awsSecretAccessKeyID: " + tokenValue
+	case "azr":
+		metadataValue = "clientId: " + tokenValue + "ID\nclientSecret: " + tokenValue + "SECRET\n" +
+			"tenantId: " + tokenValue + "TENANT\nsubscriptionId: " + tokenValue + "SUBSCRIPTION"
+	case "gcp":
+		metadataValue = "gcServiceAccountKey: " + tokenValue
+	case "vmw":
+		metadataValue = "password: " + tokenValue + "\nusername: " + userValue
+	case "ost":
+		metadataValue = "openstackCloud: " + tokenValue + "\nopenstackCloudsYaml: " + userValue
+	}
+	return corev1.Secret{
+		ObjectMeta: v1.ObjectMeta{
+			Namespace: CPSNamespace,
+			Name:      CPSName + "-" + credentialType,
+			Labels: map[string]string{
+				providerLabel: credentialType,
+			},
+		},
 		Data: map[string][]byte{
-			HOST:  []byte("https://hello.io"),
-			TOKEN: []byte("ABDCDEFJD333299943mmienw"),
+			"metadata": []byte(metadataValue),
 		},
 	}
 }
+
 func GetProviderCredentialSecretReconciler() *ProviderCredentialSecretReconciler {
 
+	// Log levels: DebugLevel  InfoLevel
 	ctrl.SetLogger(zap.New(zap.UseDevMode(true), zap.Level(zapcore.InfoLevel)))
 
 	return &ProviderCredentialSecretReconciler{
@@ -54,10 +121,14 @@ func GetProviderCredentialSecretReconciler() *ProviderCredentialSecretReconciler
 }
 
 func getRequest() ctrl.Request {
+	return getRequestWithName(CPSName)
+}
+
+func getRequestWithName(rName string) ctrl.Request {
 	return ctrl.Request{
 		NamespacedName: types.NamespacedName{
 			Namespace: CPSNamespace,
-			Name:      CPSName,
+			Name:      rName,
 		},
 	}
 }
@@ -75,7 +146,6 @@ func TestReconcileNoSecret(t *testing.T) {
 
 func TestReconcileNewCPSecret(t *testing.T) {
 
-	// Missing "bm"
 	for _, providerName := range []string{"ans", "aws", "gcp", "vmw", "ost", "azr"} {
 
 		cps := getCPSecret()
@@ -185,8 +255,8 @@ func TestReconcileChildSecrets(t *testing.T) {
 	copy2 := getCPSecret()
 
 	labels := map[string]string{
-		cloneFromLabelNamespace: CPSNamespace,
-		cloneFromLabelName:      CPSName,
+		copiedFromNamespaceLabel: CPSNamespace,
+		copiedFromNameLabel:      CPSName,
 	}
 
 	copy1.ObjectMeta.Labels = labels
@@ -204,6 +274,65 @@ func TestReconcileChildSecrets(t *testing.T) {
 
 	assert.Nil(t, err, "Nil, when Cloud Provider secret found, and hash is set")
 
+}
+
+func TestReconcileChildSecretsAllCloudProviders(t *testing.T) {
+
+	for _, provider := range []string{"aws", "gcp", "azr", "vmw", "ost"} {
+		t.Logf("Testing credential type: %v", provider)
+
+		cps := getCPSecretMetadata(provider)
+
+		cpsr := GetProviderCredentialSecretReconciler()
+		cpsr.Client = clientfake.NewFakeClient(&cps)
+
+		// Try #1 initializes the credential-hash
+		_, err := cpsr.Reconcile(context.Background(), getRequestWithName(cps.Name))
+
+		assert.Nil(t, err, "Nil, when Cloud Provider secret found, and hash is set")
+
+		// Check that the credential-hash was set
+		cpsr.Get(context.Background(), getRequestWithName(cps.Name).NamespacedName, &cps)
+
+		switch provider {
+		case "aws":
+			cps.Data["metadata"] = []byte("awsAccessKeyID: NEW_VALUE\n" + "awsSecretAccessKeyID: " + tokenValue)
+		case "azr":
+			cps.Data["metadata"] = []byte("clientId: NEW_VALUE\nclientSecret: " + tokenValue + "SECRET\n" +
+				"tenantId: " + tokenValue + "TENANT\nsubscriptionId: " + tokenValue + "SUBSCRIPTION")
+		case "gcp":
+			cps.Data["metadata"] = []byte("gcServiceAccountKey: NEW_VALUE")
+		case "vmw":
+			cps.Data["metadata"] = []byte("password: " + tokenValue + "\nusername: NEW_VALUE")
+		case "ost":
+			cps.Data["metadata"] = []byte("openstackCloud: " + tokenValue + "\nopenstackCloudsYaml: NEW_VALUE")
+		}
+
+		cpsr.Update(context.Background(), &cps)
+
+		copy1 := getCopiedSecretForProvider(provider)
+		copy2 := getCopiedSecretForProvider(provider)
+
+		labels := map[string]string{
+			copiedFromNamespaceLabel: CPSNamespace,
+			copiedFromNameLabel:      cps.Name,
+		}
+
+		copy1.ObjectMeta.Labels = labels
+		copy1.ObjectMeta.Name = CPSName + "1"
+		copy1.ObjectMeta.Namespace = CPSName + "1"
+		copy2.ObjectMeta.Labels = labels
+		copy2.ObjectMeta.Name = CPSName + "2"
+		copy2.ObjectMeta.Namespace = CPSName + "2"
+
+		cpsr.Create(context.Background(), &copy1)
+		cpsr.Create(context.Background(), &copy2)
+
+		// Try #2 Update copied secrets
+		_, err = cpsr.Reconcile(context.Background(), getRequestWithName(cps.Name))
+
+		assert.Nil(t, err, "Nil, when Cloud Provider secret found, and hash is set")
+	}
 }
 
 func TestReconcileChangeWithNoCopiedSecrets(t *testing.T) {
@@ -257,8 +386,8 @@ func TestReconcileChildSecretsInjectionAttack(t *testing.T) {
 	copy2 := getCPSecret()
 
 	labels := map[string]string{
-		cloneFromLabelNamespace: CPSNamespace,
-		cloneFromLabelName:      CPSName,
+		copiedFromNamespaceLabel: CPSNamespace,
+		copiedFromNameLabel:      CPSName,
 	}
 
 	copy1.ObjectMeta.Labels = labels
