@@ -26,8 +26,8 @@ import (
 
 const CredHash = "credential-hash"
 const providerLabel = "cluster.open-cluster-management.io/provider"
-const cloneFromLabelNamespace = "cluster.open-cluster-management.io/copiedFromNamespace"
-const cloneFromLabelName = "cluster.open-cluster-management.io/copiedFromSecretName"
+const copiedFromNamespaceLabel = "cluster.open-cluster-management.io/copiedFromNamespace"
+const copiedFromNameLabel = "cluster.open-cluster-management.io/copiedFromSecretName"
 
 var hash = sha256.New()
 
@@ -100,7 +100,7 @@ func (r *ProviderCredentialSecretReconciler) Reconcile(ctx context.Context, req 
 		err = r.List(
 			ctx,
 			secrets,
-			client.MatchingLabels{cloneFromLabelNamespace: req.Namespace, cloneFromLabelName: req.Name})
+			client.MatchingLabels{copiedFromNamespaceLabel: req.Namespace, copiedFromNameLabel: req.Name})
 
 		// Check if we found any copies
 		secretCount := len(secrets.Items)
@@ -233,7 +233,7 @@ func extractImportantData(credentialSecret corev1.Secret) (map[string][]byte, er
 
 	// NOTE: The hash is dependent on the KEY order.  Keys are sorted alphabetically when
 	//       kubernetes encodes from secret.stringData to secret.Data
-	credType := credentialSecret.ObjectMeta.Labels["cluster.open-cluster-management.io/provider"]
+	credType := credentialSecret.ObjectMeta.Labels[providerLabel]
 	switch credType {
 
 	case "ans":
@@ -253,7 +253,7 @@ func extractImportantData(credentialSecret corev1.Secret) (map[string][]byte, er
 		returnData["osServicePrincipal.json"] = []byte("{\"clientId\": \"" + string(providerMetadata["clientId"]) +
 			"\", \"clientSecret\": \"" + string(providerMetadata["clientSecret"]) + "\", \"tenantId\": \"" +
 			string(providerMetadata["tenantId"]) + "\", \"subscriptionId\": \"" +
-			string(providerMetadata["subscriptionid"]) + "\"}")
+			string(providerMetadata["subscriptionId"]) + "\"}")
 
 	case "gcp":
 
@@ -270,7 +270,7 @@ func extractImportantData(credentialSecret corev1.Secret) (map[string][]byte, er
 		returnData["clouds.yaml"] = []byte(providerMetadata["openstackCloudsYaml"])
 
 	default:
-		err = errors.New("Label:cluster.open-cluster-management.io/provider is not supported for value: " + credType)
+		err = errors.New("Label:" + providerLabel + " is not supported for value: " + credType)
 	}
 
 	return returnData, err
