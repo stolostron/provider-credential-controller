@@ -54,7 +54,7 @@ func main() {
 	}
 
 	if err = (&controllers.ProviderCredentialSecretReconciler{
-		Client: mgr.GetClient(),
+		Client: controllers.NewCustomClient(mgr.GetClient(), mgr.GetAPIReader()),
 		Log:    ctrl.Log.WithName("controllers").WithName("ProviderCredentialSecretReconciler"),
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {

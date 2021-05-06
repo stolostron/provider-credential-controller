@@ -38,6 +38,20 @@ type ProviderCredentialSecretReconciler struct {
 	Scheme *runtime.Scheme
 }
 
+// customClient will do get secret without cache, other operations are like normal cache client
+type customClient struct {
+	client.Client
+	APIReader client.Reader
+}
+
+// NewCustomClient creates custom client to do get secret without cache
+func NewCustomClient(client client.Client, apiReader client.Reader) client.Client {
+	return &customClient{
+		Client:    client,
+		APIReader: apiReader,
+	}
+}
+
 func generateHash(valueBytes []byte) ([]byte, error) {
 
 	hash.Reset()
