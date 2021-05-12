@@ -11,5 +11,6 @@ ENV USER_UID=1001
 
 # Add the binaries
 COPY --from=builder /go/src/github.com/open-cluster-management/provider-credential-controller/build/_output/manager .
+COPY --from=builder /go/src/github.com/open-cluster-management/provider-credential-controller/build/_output/secretupdater .
 
 USER ${USER_UID}

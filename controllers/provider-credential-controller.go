@@ -6,9 +6,11 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strconv"
 
 	"github.com/go-logr/logr"
@@ -25,8 +27,9 @@ import (
 )
 
 const CredHash = "credential-hash"
-const providerLabel = "cluster.open-cluster-management.io/provider"
-const copiedFromNamespaceLabel = "cluster.open-cluster-management.io/copiedFromNamespace"
+const CredentialHash = "credentialHash"
+const ProviderLabel = "cluster.open-cluster-management.io/provider"
+const CopiedFromNamespaceLabel = "cluster.open-cluster-management.io/copiedFromNamespace"
 const copiedFromNameLabel = "cluster.open-cluster-management.io/copiedFromSecretName"
 
 var hash = sha256.New()
@@ -34,23 +37,31 @@ var hash = sha256.New()
 // ProviderCredentialSecretReconciler reconciles a Provider secret
 type ProviderCredentialSecretReconciler struct {
 	client.Client
-	Log    logr.Logger
-	Scheme *runtime.Scheme
-}
-
-// customClient will do get secret without cache, other operations are like normal cache client
-type customClient struct {
-	client.Client
 	APIReader client.Reader
+	Log       logr.Logger
+	Scheme    *runtime.Scheme
 }
 
-// NewCustomClient creates custom client to do get secret without cache
-func NewCustomClient(client client.Client, apiReader client.Reader) client.Client {
-	return &customClient{
-		Client:    client,
-		APIReader: apiReader,
-	}
-}
+// // customClient will do get secret without cache, other operations are like normal cache client
+// type customClient struct {
+// 	client.Client
+// 	APIReader client.Reader
+// }
+
+// // NewCustomClient creates custom client to do get secret without cache
+// func NewCustomClient(client client.Client, apiReader client.Reader) client.Client {
+// 	return &customClient{
+// 		Client:    client,
+// 		APIReader: apiReader,
+// 	}
+// }
+
+// func (cc customClient) List(ctx context.Context, key client.ObjectList, obj runtime.Object) error {
+// 	if _, ok := obj.(*corev1.SecretList); ok {
+// 		return cc.APIReader.List(ctx, key)
+// 	}
+// 	return cc.Client.List(ctx, key)
+// }
 
 func generateHash(valueBytes []byte) ([]byte, error) {
 
@@ -73,7 +84,13 @@ func (r *ProviderCredentialSecretReconciler) Reconcile(ctx context.Context, req 
 	log.V(1).Info("Reconcile secret")
 
 	// This is the hash for the original secret.Data
-	originalHash := secret.Data[CredHash]
+	//originalHash := secret.Data[CredHash]
+
+	var originalHash []byte
+	a := secret.GetAnnotations()
+	if a != nil {
+		originalHash, _ = base64.StdEncoding.DecodeString(a[CredentialHash])
+	}
 
 	//We need to extract the specific secret.Data
 	secretData, err := extractImportantData(secret)
@@ -99,8 +116,11 @@ func (r *ProviderCredentialSecretReconciler) Reconcile(ctx context.Context, req 
 	log.V(1).Info("ORIGINAL Provider hash: " + hex.EncodeToString(originalHash))
 	log.V(1).Info("NEW Provider hash: " + hex.EncodeToString(currentHash))
 
+	fmt.Println("old: ", hex.EncodeToString(originalHash))
+	fmt.Println("new: ", hex.EncodeToString(currentHash))
+
 	// If no hash is found, store the currentHash (this is for NEW or MIGRATED Provider Secrets)
-	if originalHash == nil {
+	if a == nil {
 
 		log.V(0).Info("Store initial hash for the Provider secret")
 
@@ -111,15 +131,16 @@ func (r *ProviderCredentialSecretReconciler) Reconcile(ctx context.Context, req 
 
 		// Retreives all copied secrets that have labels pointing to this Provider
 		secrets := &corev1.SecretList{}
-		err = r.List(
+		err = r.APIReader.List(
 			ctx,
 			secrets,
-			client.MatchingLabels{copiedFromNamespaceLabel: req.Namespace, copiedFromNameLabel: req.Name})
+			client.MatchingLabels{CopiedFromNamespaceLabel: req.Namespace, copiedFromNameLabel: req.Name})
 
 		// Check if we found any copies
 		secretCount := len(secrets.Items)
 		if err != nil || secretCount == 0 {
 			log.V(1).Info("Did not find any copied secrets")
+			fmt.Println("Did not find any copied secrets")
 		}
 
 		log.V(1).Info("Found " + strconv.Itoa(secretCount) + " copies")
@@ -188,12 +209,20 @@ func (r *ProviderCredentialSecretReconciler) Reconcile(ctx context.Context, req 
 	   the processing is complete.
 	*/
 
+	// patch := &map[string]interface{}{
+	// 	"data": map[string]([]byte){
+	// 		CredHash: currentHash,
+	// 	},
+	// }
+	currentCredHash := base64.StdEncoding.EncodeToString([]byte(currentHash))
 	patch := &map[string]interface{}{
-		"data": map[string]([]byte){
-			CredHash: currentHash,
+		"metadata": map[string]interface{}{
+			"annotations": map[string]string{
+				CredentialHash: currentCredHash,
+			},
 		},
 	}
-	patchBytes, _ := json.Marshal(patch)
+	patchBytes, err := json.Marshal(patch)
 
 	err = r.Patch(context.Background(), &corev1.Secret{
 		ObjectMeta: v1.ObjectMeta{
@@ -203,7 +232,7 @@ func (r *ProviderCredentialSecretReconciler) Reconcile(ctx context.Context, req 
 	}, client.RawPatch(types.StrategicMergePatchType, patchBytes))
 
 	if err != nil {
-		log.Error(err, "Failed to patch the Provider secret.data with the new hash")
+		log.Error(err, "Failed to patch the Provider secret annotation with the new hash")
 	}
 	log.V(1).Info("Updated Provider secret hash")
 
@@ -214,7 +243,7 @@ func (r *ProviderCredentialSecretReconciler) SetupWithManager(mgr ctrl.Manager) 
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&corev1.Secret{}).WithEventFilter(predicate.Funcs{
 		CreateFunc: func(e event.CreateEvent) bool {
-			switch e.Object.GetLabels()[providerLabel] {
+			switch e.Object.GetLabels()[ProviderLabel] {
 			case "ans", "aws", "gcp", "vmw", "azr", "ost": //, "bm"
 				return true
 			}
@@ -223,7 +252,7 @@ func (r *ProviderCredentialSecretReconciler) SetupWithManager(mgr ctrl.Manager) 
 			return false
 		},
 		UpdateFunc: func(e event.UpdateEvent) bool {
-			switch e.ObjectNew.GetLabels()[providerLabel] {
+			switch e.ObjectNew.GetLabels()[ProviderLabel] {
 			case "ans", "aws", "gcp", "vmw", "azr", "ost": //, "bm"
 				return true
 			}
@@ -247,7 +276,7 @@ func extractImportantData(credentialSecret corev1.Secret) (map[string][]byte, er
 
 	// NOTE: The hash is dependent on the KEY order.  Keys are sorted alphabetically when
 	//       kubernetes encodes from secret.stringData to secret.Data
-	credType := credentialSecret.ObjectMeta.Labels[providerLabel]
+	credType := credentialSecret.ObjectMeta.Labels[ProviderLabel]
 	switch credType {
 
 	case "ans":
@@ -284,7 +313,7 @@ func extractImportantData(credentialSecret corev1.Secret) (map[string][]byte, er
 		returnData["clouds.yaml"] = []byte(providerMetadata["openstackCloudsYaml"])
 
 	default:
-		err = errors.New("Label:" + providerLabel + " is not supported for value: " + credType)
+		err = errors.New("Label:" + ProviderLabel + " is not supported for value: " + credType)
 	}
 
 	return returnData, err
