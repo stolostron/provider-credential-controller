@@ -43,26 +43,6 @@ func main() {
 	// To run in debug change zapcore.InfoLevel to zapcore.DebugLevel
 	ctrl.SetLogger(zap.New(zap.UseDevMode(true), zap.Level(zapcore.InfoLevel)))
 
-	//re := regexp.MustCompile(`.*`)
-	// /fmt.Printf("%q\n", re.FindString("seafood fool"))
-
-	labelSet := map[string]string{
-		//"cluster.open-cluster-management.io/cloudconnection": "",
-		"cluster.open-cluster-management.io/cloudconnection": "",
-		//controllers.CopiedFromNamespaceLabel: "open-cluster-management",
-	}
-	//labels.Parse()
-
-	// str := fmt.Sprintf("%s,cluster.open-cluster-management.io/copiedFromNamespace notin (open-cluster-management)", controllers.ProviderLabel)
-	// fmt.Println("str: ", str)
-	// set, err := labels.Parse(str)
-	// s, err := labels.ConvertSelectorToLabelsMap(controllers.ProviderLabel)
-	// fmt.Println("s: ", s)
-	//set1, err := labels.Parse("cluster.open-cluster-management.io/copiedFromNamespace")
-	// fmt.Println("err: ", err)
-	// fmt.Println("set: ", set)
-	//labelSelector := fmt.Sprintf("%s, %s", controllers.ProviderLabel, controllers.CopiedFromNamespaceLabel)
-
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:             scheme,
 		MetricsBindAddress: metricsAddr,
@@ -70,9 +50,7 @@ func main() {
 		NewCache: cache.BuilderWithOptions(cache.Options{
 			SelectorsByObject: cache.SelectorsByObject{
 				&corev1.Secret{}: {
-					Label: labels.SelectorFromSet(labelSet),
-					//Label: labels.Selector.RequiresExactMatch(controllers.ProviderLabel),
-					//Label: set,
+					Label: labels.SelectorFromSet(labels.Set{controllers.CredentialLabel: ""}),
 				},
 			},
 		},
@@ -86,7 +64,6 @@ func main() {
 	}
 
 	if err = (&controllers.ProviderCredentialSecretReconciler{
-		//Client: controllers.NewCustomClient(mgr.GetClient(), mgr.GetAPIReader()),
 		Client:    mgr.GetClient(),
 		APIReader: mgr.GetAPIReader(),
 		Log:       ctrl.Log.WithName("controllers").WithName("ProviderCredentialSecretReconciler"),

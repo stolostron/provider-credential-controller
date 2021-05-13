@@ -16,11 +16,8 @@ import (
 
 const CloudConnectionLabel = "cluster.open-cluster-management.io/cloudconnection"
 const CredentialLabel = "cluster.open-cluster-management.io/credentials"
-
-// var (
-// 	setupLog = logf.Log.WithName("setup")
-// )
-// var log = logf.Log.WithName("cmd")
+const ProviderLabel = "cluster.open-cluster-management.io/provider"
+const TypeLabel = "cluster.open-cluster-management.io/type"
 
 func main() {
 	// Get a config to talk to the apiserver
@@ -62,9 +59,13 @@ func updateSecretLabels(c client.Client) {
 			labels := secret.GetLabels()
 			if labels != nil {
 				for key, val := range labels {
-					if key != CloudConnectionLabel {
+					if key == ProviderLabel {
+						newLabels[TypeLabel] = val
+					}
+					if key != CloudConnectionLabel && key != ProviderLabel {
 						newLabels[key] = val
 					}
+
 				}
 			}
 			newLabels[CredentialLabel] = ""
