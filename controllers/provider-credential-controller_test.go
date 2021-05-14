@@ -114,9 +114,10 @@ func GetProviderCredentialSecretReconciler() *ProviderCredentialSecretReconciler
 	ctrl.SetLogger(zap.New(zap.UseDevMode(true), zap.Level(zapcore.InfoLevel)))
 
 	return &ProviderCredentialSecretReconciler{
-		Client: clientfake.NewFakeClientWithScheme(s),
-		Log:    ctrl.Log.WithName("controllers").WithName("ProviderCredentialSecretReconciler"),
-		Scheme: s,
+		Client:    clientfake.NewFakeClientWithScheme(s),
+		APIReader: clientfake.NewFakeClientWithScheme(s),
+		Log:       ctrl.Log.WithName("controllers").WithName("ProviderCredentialSecretReconciler"),
+		Scheme:    s,
 	}
 }
 
@@ -165,8 +166,8 @@ func TestReconcileNewCPSecret(t *testing.T) {
 		// Check that the credential-hash was set
 		cpsr.Get(context.Background(), getRequest().NamespacedName, &cps)
 
-		assert.NotNil(t, cps.Data[CredHash], CredHash+" should not be nil")
-		t.Logf("Hash: %v", cps.Data[CredHash])
+		assert.NotNil(t, cps.Annotations[CredentialHash], CredentialHash+" should not be nil")
+		t.Logf("Hash: %v", cps.Annotations[CredentialHash])
 	}
 }
 
@@ -211,7 +212,7 @@ func TestReconcileNoCPSecretChange(t *testing.T) {
 	// Check that the credential-hash was set
 	cpsr.Get(context.Background(), getRequest().NamespacedName, &cps)
 
-	try1Hash := cps.Data[CredHash]
+	try1Hash := cps.Annotations[CredentialHash]
 	assert.NotNil(t, try1Hash, CredHash+" should not be nil")
 	t.Logf("Hash: %v", try1Hash)
 
@@ -224,11 +225,11 @@ func TestReconcileNoCPSecretChange(t *testing.T) {
 	// Check that the credential-hash was set
 	cpsr.Get(context.Background(), getRequest().NamespacedName, &cps)
 
-	assert.NotNil(t, cps.Data[CredHash], CredHash+" should not be nil")
-	t.Logf("Hash: %v", cps.Data[CredHash])
+	assert.NotNil(t, cps.Annotations[CredentialHash], CredentialHash+" should not be nil")
+	t.Logf("Hash: %v", cps.Annotations[CredentialHash])
 
 	//Compare Try #1 and Try #2, the credential-hash should be the same
-	assert.Equal(t, try1Hash, cps.Data[CredHash], "Hashes are equal")
+	assert.Equal(t, try1Hash, cps.Annotations[CredentialHash], "Hashes are equal")
 }
 
 func TestReconcileChildSecrets(t *testing.T) {
@@ -240,7 +241,6 @@ func TestReconcileChildSecrets(t *testing.T) {
 
 	cpsr := GetProviderCredentialSecretReconciler()
 	cpsr.Client = clientfake.NewFakeClient(&cps)
-
 	// Try #1 initializes the credential-hash
 	_, err := cpsr.Reconcile(context.Background(), getRequest())
 
@@ -268,6 +268,8 @@ func TestReconcileChildSecrets(t *testing.T) {
 
 	cpsr.Create(context.Background(), &copy1)
 	cpsr.Create(context.Background(), &copy2)
+
+	cpsr.APIReader = clientfake.NewFakeClient(&cps, &copy1, &copy2)
 
 	// Try #2 Update copied secrets
 	_, err = cpsr.Reconcile(context.Background(), getRequest())
@@ -328,6 +330,8 @@ func TestReconcileChildSecretsAllCloudProviders(t *testing.T) {
 		cpsr.Create(context.Background(), &copy1)
 		cpsr.Create(context.Background(), &copy2)
 
+		cpsr.APIReader = clientfake.NewFakeClient(&cps, &copy1, &copy2)
+
 		// Try #2 Update copied secrets
 		_, err = cpsr.Reconcile(context.Background(), getRequestWithName(cps.Name))
 
@@ -355,6 +359,7 @@ func TestReconcileChangeWithNoCopiedSecrets(t *testing.T) {
 	cps.Data[TOKEN] = []byte("something-new")
 	cpsr.Update(context.Background(), &cps)
 
+	cpsr.APIReader = clientfake.NewFakeClient(&cps)
 	// Try #2 Update copied secrets
 	_, err = cpsr.Reconcile(context.Background(), getRequest())
 
@@ -402,6 +407,7 @@ func TestReconcileChildSecretsInjectionAttack(t *testing.T) {
 	cpsr.Create(context.Background(), &copy1)
 	cpsr.Create(context.Background(), &copy2)
 
+	cpsr.Client = clientfake.NewFakeClient(&cps, &copy1, &copy2)
 	// Try #2 Update copied secrets
 	_, err = cpsr.Reconcile(context.Background(), getRequest())
 

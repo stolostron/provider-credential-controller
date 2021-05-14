@@ -9,10 +9,12 @@ import (
 	"github.com/open-cluster-management/provider-credential-controller/controllers"
 	"go.uber.org/zap/zapcore"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	// +kubebuilder:scaffold:imports
 )
@@ -45,8 +47,16 @@ func main() {
 		Scheme:             scheme,
 		MetricsBindAddress: metricsAddr,
 		Port:               9443,
-		LeaderElection:     enableLeaderElection,
-		LeaderElectionID:   "provider-credential-controller.open-cluster-management.io",
+		NewCache: cache.BuilderWithOptions(cache.Options{
+			SelectorsByObject: cache.SelectorsByObject{
+				&corev1.Secret{}: {
+					Label: labels.SelectorFromSet(labels.Set{controllers.CredentialLabel: ""}),
+				},
+			},
+		},
+		),
+		LeaderElection:   enableLeaderElection,
+		LeaderElectionID: "provider-credential-controller.open-cluster-management.io",
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
@@ -54,9 +64,10 @@ func main() {
 	}
 
 	if err = (&controllers.ProviderCredentialSecretReconciler{
-		Client: mgr.GetClient(),
-		Log:    ctrl.Log.WithName("controllers").WithName("ProviderCredentialSecretReconciler"),
-		Scheme: mgr.GetScheme(),
+		Client:    mgr.GetClient(),
+		APIReader: mgr.GetAPIReader(),
+		Log:       ctrl.Log.WithName("controllers").WithName("ProviderCredentialSecretReconciler"),
+		Scheme:    mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "ProviderCredentialSecretReconciler")
 		os.Exit(1)

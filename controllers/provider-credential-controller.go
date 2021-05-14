@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -25,17 +26,20 @@ import (
 )
 
 const CredHash = "credential-hash"
-const providerLabel = "cluster.open-cluster-management.io/provider"
+const CredentialHash = "credentialHash"
+const providerLabel = "cluster.open-cluster-management.io/type"
 const copiedFromNamespaceLabel = "cluster.open-cluster-management.io/copiedFromNamespace"
 const copiedFromNameLabel = "cluster.open-cluster-management.io/copiedFromSecretName"
+const CredentialLabel = "cluster.open-cluster-management.io/credentials"
 
 var hash = sha256.New()
 
 // ProviderCredentialSecretReconciler reconciles a Provider secret
 type ProviderCredentialSecretReconciler struct {
 	client.Client
-	Log    logr.Logger
-	Scheme *runtime.Scheme
+	APIReader client.Reader
+	Log       logr.Logger
+	Scheme    *runtime.Scheme
 }
 
 func generateHash(valueBytes []byte) ([]byte, error) {
@@ -59,7 +63,16 @@ func (r *ProviderCredentialSecretReconciler) Reconcile(ctx context.Context, req 
 	log.V(1).Info("Reconcile secret")
 
 	// This is the hash for the original secret.Data
-	originalHash := secret.Data[CredHash]
+	var originalHash []byte
+	a := secret.GetAnnotations()
+	if a != nil {
+		var err error
+		originalHash, err = base64.StdEncoding.DecodeString(a[CredentialHash])
+		if err != nil {
+			log.Error(err, "Failed to decode credential hash "+secret.Namespace+"/"+secret.Name)
+			return ctrl.Result{}, err
+		}
+	}
 
 	//We need to extract the specific secret.Data
 	secretData, err := extractImportantData(secret)
@@ -97,7 +110,7 @@ func (r *ProviderCredentialSecretReconciler) Reconcile(ctx context.Context, req 
 
 		// Retreives all copied secrets that have labels pointing to this Provider
 		secrets := &corev1.SecretList{}
-		err = r.List(
+		err = r.APIReader.List(
 			ctx,
 			secrets,
 			client.MatchingLabels{copiedFromNamespaceLabel: req.Namespace, copiedFromNameLabel: req.Name})
@@ -106,6 +119,7 @@ func (r *ProviderCredentialSecretReconciler) Reconcile(ctx context.Context, req 
 		secretCount := len(secrets.Items)
 		if err != nil || secretCount == 0 {
 			log.V(1).Info("Did not find any copied secrets")
+			return ctrl.Result{}, nil
 		}
 
 		log.V(1).Info("Found " + strconv.Itoa(secretCount) + " copies")
@@ -174,12 +188,15 @@ func (r *ProviderCredentialSecretReconciler) Reconcile(ctx context.Context, req 
 	   the processing is complete.
 	*/
 
+	currentCredHash := base64.StdEncoding.EncodeToString([]byte(currentHash))
 	patch := &map[string]interface{}{
-		"data": map[string]([]byte){
-			CredHash: currentHash,
+		"metadata": map[string]interface{}{
+			"annotations": map[string]string{
+				CredentialHash: currentCredHash,
+			},
 		},
 	}
-	patchBytes, _ := json.Marshal(patch)
+	patchBytes, err := json.Marshal(patch)
 
 	err = r.Patch(context.Background(), &corev1.Secret{
 		ObjectMeta: v1.ObjectMeta{
@@ -189,7 +206,7 @@ func (r *ProviderCredentialSecretReconciler) Reconcile(ctx context.Context, req 
 	}, client.RawPatch(types.StrategicMergePatchType, patchBytes))
 
 	if err != nil {
-		log.Error(err, "Failed to patch the Provider secret.data with the new hash")
+		log.Error(err, "Failed to patch the Provider secret annotation with the new hash")
 	}
 	log.V(1).Info("Updated Provider secret hash")
 

@@ -12,6 +12,7 @@ compile:
 	go mod vendor
 	go mod tidy
 	GOFLAGS="" go build -o build/_output/manager ./cmd/manager/main.go
+	GOFLAGS="" go build -o build/_output/secretupdater ./cmd/secretupdater/main.go
 
 .PHONY: build
 build: 
