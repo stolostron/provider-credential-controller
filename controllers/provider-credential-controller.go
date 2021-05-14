@@ -63,12 +63,15 @@ func (r *ProviderCredentialSecretReconciler) Reconcile(ctx context.Context, req 
 	log.V(1).Info("Reconcile secret")
 
 	// This is the hash for the original secret.Data
-	//originalHash := secret.Data[CredHash]
-
 	var originalHash []byte
 	a := secret.GetAnnotations()
 	if a != nil {
-		originalHash, _ = base64.StdEncoding.DecodeString(a[CredentialHash])
+		var err error
+		originalHash, err = base64.StdEncoding.DecodeString(a[CredentialHash])
+		if err != nil {
+			log.Error(err, "Failed to decode credential hash "+secret.Namespace+"/"+secret.Name)
+			return ctrl.Result{}, err
+		}
 	}
 
 	//We need to extract the specific secret.Data
@@ -96,7 +99,7 @@ func (r *ProviderCredentialSecretReconciler) Reconcile(ctx context.Context, req 
 	log.V(1).Info("NEW Provider hash: " + hex.EncodeToString(currentHash))
 
 	// If no hash is found, store the currentHash (this is for NEW or MIGRATED Provider Secrets)
-	if a == nil {
+	if originalHash == nil {
 
 		log.V(0).Info("Store initial hash for the Provider secret")
 
