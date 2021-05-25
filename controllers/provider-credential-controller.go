@@ -13,7 +13,6 @@ import (
 	"strconv"
 
 	"github.com/go-logr/logr"
-	"gopkg.in/yaml.v2"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -25,8 +24,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 )
 
-const CredHash = "credential-hash"
-const CredentialHash = "credentialHash"
+const CredentialHash = "credential-hash"
 const providerLabel = "cluster.open-cluster-management.io/type"
 const copiedFromNamespaceLabel = "cluster.open-cluster-management.io/copiedFromNamespace"
 const copiedFromNameLabel = "cluster.open-cluster-management.io/copiedFromSecretName"
@@ -155,8 +153,7 @@ func (r *ProviderCredentialSecretReconciler) Reconcile(ctx context.Context, req 
 				log.V(1).Info("Child secret hash matches, update the child secret")
 
 				childSecret.Data = secretData
-				err = r.Client.Update(ctx, &childSecret)
-				if err != nil {
+				if err := r.Client.Update(ctx, &childSecret); err != nil {
 					log.Error(err, "|--X Failed to update child secret: "+childSecret.Namespace+"/"+childSecret.Name)
 				}
 				log.V(0).Info("|--> Updated secret: " + childSecret.Namespace + "/" + childSecret.Name)
@@ -243,8 +240,8 @@ func (r *ProviderCredentialSecretReconciler) SetupWithManager(mgr ctrl.Manager) 
 func extractImportantData(credentialSecret corev1.Secret) (map[string][]byte, error) {
 
 	returnData := map[string][]byte{}
-
-	providerMetadata, err := extractCredentialFromMetadata(credentialSecret.Data)
+	var err error
+	//providerMetadata, err := extractCredentialFromMetadata(credentialSecret.Data)
 
 	//_, err := extractCredentialFromMetadata(credentialSecret.Data)
 
@@ -255,9 +252,6 @@ func extractImportantData(credentialSecret corev1.Secret) (map[string][]byte, er
 
 	case "ans":
 		returnData = credentialSecret.Data
-		delete(returnData, CredHash)
-
-		err = nil
 
 	case "aws":
 
@@ -294,13 +288,13 @@ func extractImportantData(credentialSecret corev1.Secret) (map[string][]byte, er
 	return returnData, err
 }
 
-func extractCredentialFromMetadata(secretData map[string][]byte) (map[string]string, error) {
-	if bytes.Compare(secretData["metadata"], []byte{}) == 0 {
-		return nil, errors.New("Did not find any credential information with key: metadata")
-	}
-	providerMetadata := map[string]string{}
+// func extractCredentialFromMetadata(secretData map[string][]byte) (map[string]string, error) {
+// 	if bytes.Compare(secretData["metadata"], []byte{}) == 0 {
+// 		return nil, errors.New("Did not find any credential information with key: metadata")
+// 	}
+// 	providerMetadata := map[string]string{}
 
-	err := yaml.Unmarshal(secretData["metadata"], &providerMetadata)
+// 	err := yaml.Unmarshal(secretData["metadata"], &providerMetadata)
 
-	return providerMetadata, err
-}
+// 	return providerMetadata, err
+// }
