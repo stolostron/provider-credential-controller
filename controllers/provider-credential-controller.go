@@ -261,30 +261,31 @@ func extractImportantData(credentialSecret corev1.Secret) (map[string][]byte, er
 
 	case "aws":
 
-		returnData["aws_access_key_id"] = []byte(providerMetadata["awsAccessKeyID"])
-		returnData["aws_secret_access_key"] = []byte(providerMetadata["awsSecretAccessKeyID"])
+		returnData["aws_access_key_id"] = credentialSecret.Data["aws_access_key_id"]
+		returnData["aws_secret_access_key"] = credentialSecret.Data["aws_secret_access_key"]
 
 	case "azr":
 
 		// Build the osServicePrincipal json string as a byte slice
-		returnData["osServicePrincipal.json"] = []byte("{\"clientId\": \"" + string(providerMetadata["clientId"]) +
-			"\", \"clientSecret\": \"" + string(providerMetadata["clientSecret"]) + "\", \"tenantId\": \"" +
-			string(providerMetadata["tenantId"]) + "\", \"subscriptionId\": \"" +
-			string(providerMetadata["subscriptionId"]) + "\"}")
+		// returnData["osServicePrincipal.json"] = []byte("{\"clientId\": \"" + string(providerMetadata["clientId"]) +
+		// 	"\", \"clientSecret\": \"" + string(providerMetadata["clientSecret"]) + "\", \"tenantId\": \"" +
+		// 	string(providerMetadata["tenantId"]) + "\", \"subscriptionId\": \"" +
+		// 	string(providerMetadata["subscriptionId"]) + "\"}")
+		returnData["osServicePrincipal.json"] = credentialSecret.Data["osServicePrincipal.json"]
 
 	case "gcp":
 
-		returnData["osServiceAccount.json"] = []byte(providerMetadata["gcServiceAccountKey"])
+		returnData["osServiceAccount.json"] = credentialSecret.Data["osServicePrincipal.json"]
 
 	case "vmw":
 
-		returnData["password"] = []byte(providerMetadata["password"])
-		returnData["username"] = []byte(providerMetadata["username"])
+		returnData["password"] = credentialSecret.Data["password"]
+		returnData["username"] = credentialSecret.Data["username"]
 
 	case "ost":
 
-		returnData["cloud"] = []byte(providerMetadata["openstackCloud"])
-		returnData["clouds.yaml"] = []byte(providerMetadata["openstackCloudsYaml"])
+		returnData["cloud"] = credentialSecret.Data["cloud"]
+		returnData["clouds.yaml"] = credentialSecret.Data["clouds.yaml"]
 
 	default:
 		err = errors.New("Label:" + providerLabel + " is not supported for value: " + credType)
