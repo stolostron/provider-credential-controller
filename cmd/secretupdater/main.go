@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 
 	"gopkg.in/yaml.v2"
 	corev1 "k8s.io/api/core/v1"
@@ -28,8 +29,12 @@ var mapYamlKeys = map[string]string{
 	"sshPrivatekey":        "ssh-privatekey",
 	"sshPublickey":         "ssh-publickey",
 	"gcServiceAccountKey":  "osServiceAccount.json",
+	"gcProjectID":          "projectID",
 	"openstackCloudsYaml":  "clouds.yaml",
 	"openstackCloud":       "cloud",
+	"vcenter":              "vCenter",
+	"vmClusterName":        "cluster",
+	"datastore":            "defaultDatastore",
 }
 
 func main() {
@@ -108,6 +113,7 @@ func updateSecret(c client.Client) {
 					for _, host := range meta.([]interface{}) {
 						sshKnownhost = sshKnownhost + host.(string) + "\n"
 					}
+					sshKnownhost = strings.TrimSuffix(sshKnownhost, "\n")
 					b = []byte(sshKnownhost)
 				} else {
 					b = []byte(fmt.Sprintf("%v", meta.(interface{})))
