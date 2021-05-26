@@ -45,7 +45,7 @@ func main() {
 		klog.Error(err, "")
 		os.Exit(1)
 	}
-	updateSecretLabels(kubeclient)
+	updateSecret(kubeclient)
 }
 func newK8s(conf *rest.Config) (client.Client, error) {
 	kubeClient, err := client.New(conf, client.Options{})
@@ -55,7 +55,7 @@ func newK8s(conf *rest.Config) (client.Client, error) {
 	}
 	return kubeClient, nil
 }
-func updateSecretLabels(c client.Client) {
+func updateSecret(c client.Client) {
 	secrets := &corev1.SecretList{}
 	err := c.List(
 		context.TODO(),
