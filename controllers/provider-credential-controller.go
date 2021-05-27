@@ -241,9 +241,6 @@ func extractImportantData(credentialSecret corev1.Secret) (map[string][]byte, er
 
 	returnData := map[string][]byte{}
 	var err error
-	//providerMetadata, err := extractCredentialFromMetadata(credentialSecret.Data)
-
-	//_, err := extractCredentialFromMetadata(credentialSecret.Data)
 
 	// NOTE: The hash is dependent on the KEY order.  Keys are sorted alphabetically when
 	//       kubernetes encodes from secret.stringData to secret.Data
@@ -260,11 +257,6 @@ func extractImportantData(credentialSecret corev1.Secret) (map[string][]byte, er
 
 	case "azr":
 
-		// Build the osServicePrincipal json string as a byte slice
-		// returnData["osServicePrincipal.json"] = []byte("{\"clientId\": \"" + string(providerMetadata["clientId"]) +
-		// 	"\", \"clientSecret\": \"" + string(providerMetadata["clientSecret"]) + "\", \"tenantId\": \"" +
-		// 	string(providerMetadata["tenantId"]) + "\", \"subscriptionId\": \"" +
-		// 	string(providerMetadata["subscriptionId"]) + "\"}")
 		returnData["osServicePrincipal.json"] = credentialSecret.Data["osServicePrincipal.json"]
 
 	case "gcp":
@@ -287,14 +279,3 @@ func extractImportantData(credentialSecret corev1.Secret) (map[string][]byte, er
 
 	return returnData, err
 }
-
-// func extractCredentialFromMetadata(secretData map[string][]byte) (map[string]string, error) {
-// 	if bytes.Compare(secretData["metadata"], []byte{}) == 0 {
-// 		return nil, errors.New("Did not find any credential information with key: metadata")
-// 	}
-// 	providerMetadata := map[string]string{}
-
-// 	err := yaml.Unmarshal(secretData["metadata"], &providerMetadata)
-
-// 	return providerMetadata, err
-// }
