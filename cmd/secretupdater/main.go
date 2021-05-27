@@ -3,10 +3,14 @@
 package main
 
 import (
+	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"os"
+	"strings"
 
+	"gopkg.in/yaml.v2"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/rest"
 	"k8s.io/klog"
@@ -18,6 +22,20 @@ const CloudConnectionLabel = "cluster.open-cluster-management.io/cloudconnection
 const CredentialLabel = "cluster.open-cluster-management.io/credentials"
 const ProviderLabel = "cluster.open-cluster-management.io/provider"
 const TypeLabel = "cluster.open-cluster-management.io/type"
+
+var mapYamlKeys = map[string]string{
+	"awsAccessKeyID":       "aws_access_key_id",
+	"awsSecretAccessKeyID": "aws_secret_access_key",
+	"sshPrivatekey":        "ssh-privatekey",
+	"sshPublickey":         "ssh-publickey",
+	"gcServiceAccountKey":  "osServiceAccount.json",
+	"gcProjectID":          "projectID",
+	"openstackCloudsYaml":  "clouds.yaml",
+	"openstackCloud":       "cloud",
+	"vcenter":              "vCenter",
+	"vmClusterName":        "cluster",
+	"datastore":            "defaultDatastore",
+}
 
 func main() {
 	// Get a config to talk to the apiserver
@@ -32,7 +50,7 @@ func main() {
 		klog.Error(err, "")
 		os.Exit(1)
 	}
-	updateSecretLabels(kubeclient)
+	updateSecret(kubeclient)
 }
 func newK8s(conf *rest.Config) (client.Client, error) {
 	kubeClient, err := client.New(conf, client.Options{})
@@ -42,7 +60,7 @@ func newK8s(conf *rest.Config) (client.Client, error) {
 	}
 	return kubeClient, nil
 }
-func updateSecretLabels(c client.Client) {
+func updateSecret(c client.Client) {
 	secrets := &corev1.SecretList{}
 	err := c.List(
 		context.TODO(),
@@ -71,16 +89,68 @@ func updateSecretLabels(c client.Client) {
 			newLabels[CredentialLabel] = ""
 
 			secret.ObjectMeta.Labels = newLabels
+			providerMetadata, err := extractSecretMetadata(secret.Data)
+			if err != nil {
+				klog.Error(err, "\tsecret: ", secret.Name)
+				continue
+			}
+
+			credType := labels[ProviderLabel]
+			switch credType {
+			case "azr":
+				osServicePrincipal := `{"clientId": "` + fmt.Sprintf("%v", providerMetadata["clientId"]) + `", "clientSecret": "` + fmt.Sprintf("%v", providerMetadata["clientSecret"]) + `", "tenantId": "` + fmt.Sprintf("%v", providerMetadata["tenantId"]) + `", "subscriptionId": "` + fmt.Sprintf("%v", providerMetadata["subscriptionId"]) + `"}`
+				secret.Data["osServicePrincipal.json"] = []byte(osServicePrincipal)
+				delete(providerMetadata, "clientId")
+				delete(providerMetadata, "clientSecret")
+				delete(providerMetadata, "tenantId")
+				delete(providerMetadata, "subscriptionId")
+			}
+
+			for key, meta := range providerMetadata {
+				var b []byte
+				if key == "sshKnownHosts" {
+					var sshKnownhost string
+					for _, host := range meta.([]interface{}) {
+						sshKnownhost = sshKnownhost + host.(string) + "\n"
+					}
+					sshKnownhost = strings.TrimSuffix(sshKnownhost, "\n")
+					b = []byte(sshKnownhost)
+				} else {
+					b = []byte(fmt.Sprintf("%v", meta.(interface{})))
+				}
+				if hiveKey, ok := mapYamlKeys[key]; ok {
+					secret.Data[hiveKey] = b
+				} else {
+					secret.Data[key] = b
+				}
+			}
+
+			delete(secret.Data, "metadata")
 			err = c.Update(context.Background(), &secret)
 
 			if err != nil {
 				klog.Error(err, "Failed to patch the Provider secret label")
-				panic(err)
+				continue
 			} else {
-				klog.V(0).Info("Updated secret with new label: ", secret.Name)
+				klog.V(0).Info("Updated secret with new label and yaml keys: ", secret.Name)
 			}
 		}
 	}
 
 	klog.V(0).Info("Done!")
+}
+
+func extractSecretMetadata(secretData map[string][]byte) (map[string]interface{}, error) {
+	if bytes.Compare(secretData["metadata"], []byte{}) == 0 {
+		return nil, errors.New("Did not find any credential information with key: metadata")
+	}
+	providerMetadata := map[string]interface{}{}
+
+	err := yaml.Unmarshal(secretData["metadata"], &providerMetadata)
+	if err != nil {
+		klog.Error(err)
+		return nil, errors.New("Failed to unmarshal the Provider secret metadata")
+	}
+
+	return providerMetadata, err
 }

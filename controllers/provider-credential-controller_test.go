@@ -213,7 +213,7 @@ func TestReconcileNoCPSecretChange(t *testing.T) {
 	cpsr.Get(context.Background(), getRequest().NamespacedName, &cps)
 
 	try1Hash := cps.Annotations[CredentialHash]
-	assert.NotNil(t, try1Hash, CredHash+" should not be nil")
+	assert.NotNil(t, try1Hash, CredentialHash+" should not be nil")
 	t.Logf("Hash: %v", try1Hash)
 
 	// Test the function try #2 (Initializes credential-hash)

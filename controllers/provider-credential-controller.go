@@ -13,7 +13,6 @@ import (
 	"strconv"
 
 	"github.com/go-logr/logr"
-	"gopkg.in/yaml.v2"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -25,8 +24,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 )
 
-const CredHash = "credential-hash"
-const CredentialHash = "credentialHash"
+const CredentialHash = "credential-hash"
 const providerLabel = "cluster.open-cluster-management.io/type"
 const copiedFromNamespaceLabel = "cluster.open-cluster-management.io/copiedFromNamespace"
 const copiedFromNameLabel = "cluster.open-cluster-management.io/copiedFromSecretName"
@@ -155,8 +153,7 @@ func (r *ProviderCredentialSecretReconciler) Reconcile(ctx context.Context, req 
 				log.V(1).Info("Child secret hash matches, update the child secret")
 
 				childSecret.Data = secretData
-				err = r.Client.Update(ctx, &childSecret)
-				if err != nil {
+				if err := r.Client.Update(ctx, &childSecret); err != nil {
 					log.Error(err, "|--X Failed to update child secret: "+childSecret.Namespace+"/"+childSecret.Name)
 				}
 				log.V(0).Info("|--> Updated secret: " + childSecret.Namespace + "/" + childSecret.Name)
@@ -243,10 +240,7 @@ func (r *ProviderCredentialSecretReconciler) SetupWithManager(mgr ctrl.Manager) 
 func extractImportantData(credentialSecret corev1.Secret) (map[string][]byte, error) {
 
 	returnData := map[string][]byte{}
-
-	providerMetadata, err := extractCredentialFromMetadata(credentialSecret.Data)
-
-	//_, err := extractCredentialFromMetadata(credentialSecret.Data)
+	var err error
 
 	// NOTE: The hash is dependent on the KEY order.  Keys are sorted alphabetically when
 	//       kubernetes encodes from secret.stringData to secret.Data
@@ -255,51 +249,33 @@ func extractImportantData(credentialSecret corev1.Secret) (map[string][]byte, er
 
 	case "ans":
 		returnData = credentialSecret.Data
-		delete(returnData, CredHash)
-
-		err = nil
 
 	case "aws":
 
-		returnData["aws_access_key_id"] = []byte(providerMetadata["awsAccessKeyID"])
-		returnData["aws_secret_access_key"] = []byte(providerMetadata["awsSecretAccessKeyID"])
+		returnData["aws_access_key_id"] = credentialSecret.Data["aws_access_key_id"]
+		returnData["aws_secret_access_key"] = credentialSecret.Data["aws_secret_access_key"]
 
 	case "azr":
 
-		// Build the osServicePrincipal json string as a byte slice
-		returnData["osServicePrincipal.json"] = []byte("{\"clientId\": \"" + string(providerMetadata["clientId"]) +
-			"\", \"clientSecret\": \"" + string(providerMetadata["clientSecret"]) + "\", \"tenantId\": \"" +
-			string(providerMetadata["tenantId"]) + "\", \"subscriptionId\": \"" +
-			string(providerMetadata["subscriptionId"]) + "\"}")
+		returnData["osServicePrincipal.json"] = credentialSecret.Data["osServicePrincipal.json"]
 
 	case "gcp":
 
-		returnData["osServiceAccount.json"] = []byte(providerMetadata["gcServiceAccountKey"])
+		returnData["osServiceAccount.json"] = credentialSecret.Data["osServicePrincipal.json"]
 
 	case "vmw":
 
-		returnData["password"] = []byte(providerMetadata["password"])
-		returnData["username"] = []byte(providerMetadata["username"])
+		returnData["password"] = credentialSecret.Data["password"]
+		returnData["username"] = credentialSecret.Data["username"]
 
 	case "ost":
 
-		returnData["cloud"] = []byte(providerMetadata["openstackCloud"])
-		returnData["clouds.yaml"] = []byte(providerMetadata["openstackCloudsYaml"])
+		returnData["cloud"] = credentialSecret.Data["cloud"]
+		returnData["clouds.yaml"] = credentialSecret.Data["clouds.yaml"]
 
 	default:
 		err = errors.New("Label:" + providerLabel + " is not supported for value: " + credType)
 	}
 
 	return returnData, err
-}
-
-func extractCredentialFromMetadata(secretData map[string][]byte) (map[string]string, error) {
-	if bytes.Compare(secretData["metadata"], []byte{}) == 0 {
-		return nil, errors.New("Did not find any credential information with key: metadata")
-	}
-	providerMetadata := map[string]string{}
-
-	err := yaml.Unmarshal(secretData["metadata"], &providerMetadata)
-
-	return providerMetadata, err
 }
