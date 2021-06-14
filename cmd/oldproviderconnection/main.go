@@ -64,10 +64,9 @@ func main() {
 	}
 
 	if err = (&oldproviderconnection.OldProviderConnectionReconciler{
-		Client:    mgr.GetClient(),
-		APIReader: mgr.GetAPIReader(),
-		Log:       ctrl.Log.WithName("controllers").WithName("OldProviderConnectionReconciler"),
-		Scheme:    mgr.GetScheme(),
+		Client: mgr.GetClient(),
+		Log:    ctrl.Log.WithName("controllers").WithName("OldProviderConnectionReconciler"),
+		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "OldProviderConnectionReconciler")
 		os.Exit(1)
