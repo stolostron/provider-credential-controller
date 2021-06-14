@@ -1,6 +1,6 @@
 // Copyright Contributors to the Open Cluster Management project.
 
-package controllers
+package providercredential
 
 import (
 	"context"
@@ -49,7 +49,7 @@ func TestInitializeSecrets(t *testing.T) {
 	providerSecret := getCPSecret()
 
 	providerSecret.ObjectMeta.Labels = map[string]string{
-		providerLabel: "ans",
+		ProviderTypeLabel: "ans",
 	}
 	t.Log("Create Provider Credential secret")
 	err := c.Create(context.Background(), &providerSecret)
@@ -77,7 +77,7 @@ func TestCleanUpSecrets(t *testing.T) {
 
 	providerSecret := getCPSecret()
 	providerSecret.ObjectMeta.Labels = map[string]string{
-		providerLabel: "ans",
+		ProviderTypeLabel: "ans",
 	}
 
 	err := c.Delete(context.Background(), &providerSecret)
