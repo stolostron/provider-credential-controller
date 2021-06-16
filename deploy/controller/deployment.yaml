@@ -49,3 +49,23 @@ spec:
           requests:
             cpu: "3m"
             memory: "65Mi"
+      - command:
+        - "./old-provider-connection"
+        - "-enable-leader-election"
+        image: registry.ci.openshift.org/open-cluster-management/2.3:provider-credential-controller
+        imagePullPolicy: Always
+        name: old-provider-connection
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          privileged: false
+          readOnlyRootFilesystem: true
+        resources:
+          limits:
+            cpu: "20m"
+            memory: "500Mi"
+          requests:
+            cpu: "3m"
+            memory: "65Mi"

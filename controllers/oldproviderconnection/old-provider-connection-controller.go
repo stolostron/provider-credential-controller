@@ -42,7 +42,7 @@ var mapYamlKeys = map[string]string{
 
 var hash = sha256.New()
 
-// ProviderCredentialSecretReconciler reconciles a Provider secret
+// OldProviderConnectionReconciler reconciles a Old Provider secret
 type OldProviderConnectionReconciler struct {
 	client.Client
 	Log    logr.Logger

@@ -21,6 +21,7 @@ build:
 .PHONY: unit-tests
 unit-tests:
 	GOFLAGS="" go test -timeout 120s -v -short ./controllers/providercredential
+	GOFLAGS="" go test -timeout 120s -v -short ./controllers/oldproviderconnection
 
 .PHONY: scale-up
 scale-up:
