@@ -1,6 +1,6 @@
 // Copyright Contributors to the Open Cluster Management project.
 
-package controllers
+package providercredential
 
 import (
 	"context"
@@ -99,7 +99,7 @@ func getCPSecretMetadata(credentialType string) corev1.Secret {
 			Namespace: CPSNamespace,
 			Name:      CPSName + "-" + credentialType,
 			Labels: map[string]string{
-				providerLabel: credentialType,
+				ProviderTypeLabel: credentialType,
 			},
 		},
 		Data: map[string][]byte{
@@ -151,7 +151,7 @@ func TestReconcileNewCPSecret(t *testing.T) {
 
 		cps := getCPSecret()
 		cps.ObjectMeta.Labels = map[string]string{
-			providerLabel: providerName,
+			ProviderTypeLabel: providerName,
 		}
 		cps.Data["metadata"] = []byte("fakeKey: fakeValue\n")
 
@@ -178,7 +178,7 @@ func TestReconcileInvalidProviderLabel(t *testing.T) {
 
 		cps := getCPSecret()
 		cps.ObjectMeta.Labels = map[string]string{
-			providerLabel: providerName,
+			ProviderTypeLabel: providerName,
 		}
 		cps.Data["metadata"] = []byte("fakeKey: fakeValue\n")
 
@@ -197,7 +197,7 @@ func TestReconcileNoCPSecretChange(t *testing.T) {
 
 	cps := getCPSecret()
 	cps.ObjectMeta.Labels = map[string]string{
-		providerLabel: "ans",
+		ProviderTypeLabel: "ans",
 	}
 
 	cpsr := GetProviderCredentialSecretReconciler()
@@ -236,7 +236,7 @@ func TestReconcileChildSecrets(t *testing.T) {
 
 	cps := getCPSecret()
 	cps.ObjectMeta.Labels = map[string]string{
-		providerLabel: "ans",
+		ProviderTypeLabel: "ans",
 	}
 
 	cpsr := GetProviderCredentialSecretReconciler()
@@ -343,7 +343,7 @@ func TestReconcileChangeWithNoCopiedSecrets(t *testing.T) {
 
 	cps := getCPSecret()
 	cps.ObjectMeta.Labels = map[string]string{
-		providerLabel: "ans",
+		ProviderTypeLabel: "ans",
 	}
 
 	cpsr := GetProviderCredentialSecretReconciler()
@@ -371,7 +371,7 @@ func TestReconcileChildSecretsInjectionAttack(t *testing.T) {
 
 	cps := getCPSecret()
 	cps.ObjectMeta.Labels = map[string]string{
-		providerLabel: "ans",
+		ProviderTypeLabel: "ans",
 	}
 
 	cpsr := GetProviderCredentialSecretReconciler()

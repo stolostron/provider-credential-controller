@@ -1,6 +1,6 @@
 // Copyright Contributors to the Open Cluster Management project.
 
-package controllers
+package providercredential
 
 import (
 	"bytes"
@@ -25,7 +25,7 @@ import (
 )
 
 const CredentialHash = "credential-hash"
-const providerLabel = "cluster.open-cluster-management.io/type"
+const ProviderTypeLabel = "cluster.open-cluster-management.io/type"
 const copiedFromNamespaceLabel = "cluster.open-cluster-management.io/copiedFromNamespace"
 const copiedFromNameLabel = "cluster.open-cluster-management.io/copiedFromSecretName"
 const CredentialLabel = "cluster.open-cluster-management.io/credentials"
@@ -214,7 +214,7 @@ func (r *ProviderCredentialSecretReconciler) SetupWithManager(mgr ctrl.Manager) 
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&corev1.Secret{}).WithEventFilter(predicate.Funcs{
 		CreateFunc: func(e event.CreateEvent) bool {
-			switch e.Object.GetLabels()[providerLabel] {
+			switch e.Object.GetLabels()[ProviderTypeLabel] {
 			case "ans", "aws", "gcp", "vmw", "azr", "ost": //, "bm"
 				return true
 			}
@@ -223,7 +223,7 @@ func (r *ProviderCredentialSecretReconciler) SetupWithManager(mgr ctrl.Manager) 
 			return false
 		},
 		UpdateFunc: func(e event.UpdateEvent) bool {
-			switch e.ObjectNew.GetLabels()[providerLabel] {
+			switch e.ObjectNew.GetLabels()[ProviderTypeLabel] {
 			case "ans", "aws", "gcp", "vmw", "azr", "ost": //, "bm"
 				return true
 			}
@@ -244,7 +244,7 @@ func extractImportantData(credentialSecret corev1.Secret) (map[string][]byte, er
 
 	// NOTE: The hash is dependent on the KEY order.  Keys are sorted alphabetically when
 	//       kubernetes encodes from secret.stringData to secret.Data
-	credType := credentialSecret.ObjectMeta.Labels[providerLabel]
+	credType := credentialSecret.ObjectMeta.Labels[ProviderTypeLabel]
 	switch credType {
 
 	case "ans":
@@ -274,7 +274,7 @@ func extractImportantData(credentialSecret corev1.Secret) (map[string][]byte, er
 		returnData["clouds.yaml"] = credentialSecret.Data["clouds.yaml"]
 
 	default:
-		err = errors.New("Label:" + providerLabel + " is not supported for value: " + credType)
+		err = errors.New("Label:" + ProviderTypeLabel + " is not supported for value: " + credType)
 	}
 
 	return returnData, err
