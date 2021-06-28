@@ -251,7 +251,6 @@ func extractImportantData(credentialSecret corev1.Secret) (map[string][]byte, er
 		returnData = credentialSecret.Data
 
 	case "aws":
-
 		returnData["aws_access_key_id"] = credentialSecret.Data["aws_access_key_id"]
 		returnData["aws_secret_access_key"] = credentialSecret.Data["aws_secret_access_key"]
 
