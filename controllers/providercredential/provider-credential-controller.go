@@ -251,25 +251,20 @@ func extractImportantData(credentialSecret corev1.Secret) (map[string][]byte, er
 		returnData = credentialSecret.Data
 
 	case "aws":
-
 		returnData["aws_access_key_id"] = credentialSecret.Data["aws_access_key_id"]
 		returnData["aws_secret_access_key"] = credentialSecret.Data["aws_secret_access_key"]
 
 	case "azr":
-
 		returnData["osServicePrincipal.json"] = credentialSecret.Data["osServicePrincipal.json"]
 
 	case "gcp":
-
-		returnData["osServiceAccount.json"] = credentialSecret.Data["osServicePrincipal.json"]
+		returnData["osServiceAccount.json"] = credentialSecret.Data["osServiceAccount.json"]
 
 	case "vmw":
-
 		returnData["password"] = credentialSecret.Data["password"]
 		returnData["username"] = credentialSecret.Data["username"]
 
 	case "ost":
-
 		returnData["cloud"] = credentialSecret.Data["cloud"]
 		returnData["clouds.yaml"] = credentialSecret.Data["clouds.yaml"]
 
