@@ -73,4 +73,3 @@ Go to the [Contributing guide](CONTRIBUTING.md) to learn how to get involved.
 ## References
 
 - The `provider-credential-controller` is part of the `open-cluster-management` community. For more information, visit: [open-cluster-management.io](https://open-cluster-management.io).
-
