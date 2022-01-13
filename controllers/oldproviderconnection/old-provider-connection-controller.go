@@ -11,7 +11,7 @@ import (
 	"strings"
 
 	"github.com/go-logr/logr"
-	"github.com/open-cluster-management/provider-credential-controller/controllers/providercredential"
+	"github.com/stolostron/provider-credential-controller/controllers/providercredential"
 	"gopkg.in/yaml.v2"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
