@@ -32,7 +32,7 @@ spec:
       - command:
         - "./manager"
         - "-enable-leader-election"
-        image: registry.ci.openshift.org/open-cluster-management/2.3:provider-credential-controller
+        image: registry.ci.openshift.org/stolostron/2.3:provider-credential-controller
         imagePullPolicy: Always
         name: provider-credential-controller
         securityContext:
@@ -52,7 +52,7 @@ spec:
       - command:
         - "./old-provider-connection"
         - "-enable-leader-election"
-        image: registry.ci.openshift.org/open-cluster-management/2.3:provider-credential-controller
+        image: registry.ci.openshift.org/stolostron/2.3:provider-credential-controller
         imagePullPolicy: Always
         name: old-provider-connection
         securityContext:
