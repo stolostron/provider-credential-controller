@@ -1,6 +1,8 @@
-module github.com/open-cluster-management/provider-credential-controller
+module github.com/stolostron/provider-credential-controller
 
 go 1.17
+
+replace github.com/open-cluster-management/library-go => github.com/stolostron/library-go v0.0.0-20210325215722-d989f79194f6
 
 require (
 	github.com/go-logr/logr v0.4.0

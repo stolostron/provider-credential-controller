@@ -6,7 +6,7 @@ import (
 	"flag"
 	"os"
 
-	"github.com/open-cluster-management/provider-credential-controller/controllers/providercredential"
+	"github.com/stolostron/provider-credential-controller/controllers/providercredential"
 	"go.uber.org/zap/zapcore"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
