@@ -2,7 +2,10 @@ module github.com/stolostron/provider-credential-controller
 
 go 1.17
 
-replace github.com/open-cluster-management/library-go => github.com/stolostron/library-go v0.0.0-20210325215722-d989f79194f6
+replace (
+	github.com/open-cluster-management/library-go => github.com/stolostron/library-go v0.0.0-20210325215722-d989f79194f6
+	golang.org/x/crypto => golang.org/x/crypto v0.0.0-20211202192323-5770296d904e // CVE-2021-43565
+)
 
 require (
 	github.com/go-logr/logr v0.4.0
@@ -47,9 +50,9 @@ require (
 	github.com/spf13/pflag v1.0.5 // indirect
 	go.uber.org/atomic v1.7.0 // indirect
 	go.uber.org/multierr v1.6.0 // indirect
-	golang.org/x/net v0.0.0-20210428140749-89ef3d95e781 // indirect
+	golang.org/x/net v0.0.0-20211112202133-69e39bad7dc2 // indirect
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d // indirect
-	golang.org/x/sys v0.0.0-20210603081109-ebe580a85c40 // indirect
+	golang.org/x/sys v0.0.0-20210615035016-665e8c7367d1 // indirect
 	golang.org/x/term v0.0.0-20210220032956-6a3ed077a48d // indirect
 	golang.org/x/text v0.3.6 // indirect
 	golang.org/x/time v0.0.0-20210220033141-f8bda1e9f3ba // indirect
