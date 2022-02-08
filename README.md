@@ -69,4 +69,3 @@ Go to the [Contributing guide](CONTRIBUTING.md) to learn how to get involved.
 
 - Check the [Security guide](SECURITY.md) if you need to report a security issue.
 
-
