@@ -10,7 +10,9 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
@@ -29,6 +31,12 @@ const ProviderTypeLabel = "cluster.open-cluster-management.io/type"
 const copiedFromNamespaceLabel = "cluster.open-cluster-management.io/copiedFromNamespace"
 const copiedFromNameLabel = "cluster.open-cluster-management.io/copiedFromSecretName"
 const CredentialLabel = "cluster.open-cluster-management.io/credentials"
+
+const rhvConfigTemplate = `ovirt_url: %s
+ovirt_username: %s
+ovirt_password: %s
+ovirt_ca_bundle: |+
+  %s`
 
 var hash = sha256.New()
 
@@ -128,6 +136,8 @@ func (r *ProviderCredentialSecretReconciler) Reconcile(ctx context.Context, req 
 
 			childSecret := secrets.Items[i]
 
+			log.V(0).Info("Child secret:" + childSecret.Namespace + "/" + childSecret.Name)
+
 			secretBytes, err := json.Marshal(childSecret.Data)
 			if err != nil {
 				log.Error(err, "Failed to marshal secret data for hashing")
@@ -215,7 +225,7 @@ func (r *ProviderCredentialSecretReconciler) SetupWithManager(mgr ctrl.Manager) 
 		For(&corev1.Secret{}).WithEventFilter(predicate.Funcs{
 		CreateFunc: func(e event.CreateEvent) bool {
 			switch e.Object.GetLabels()[ProviderTypeLabel] {
-			case "ans", "aws", "gcp", "vmw", "azr", "ost": //, "bm"
+			case "ans", "aws", "gcp", "vmw", "azr", "ost", "redhatvirtualization": //, "bm"
 				return true
 			}
 			// Add the hash check here??
@@ -224,7 +234,7 @@ func (r *ProviderCredentialSecretReconciler) SetupWithManager(mgr ctrl.Manager) 
 		},
 		UpdateFunc: func(e event.UpdateEvent) bool {
 			switch e.ObjectNew.GetLabels()[ProviderTypeLabel] {
-			case "ans", "aws", "gcp", "vmw", "azr", "ost": //, "bm"
+			case "ans", "aws", "gcp", "vmw", "azr", "ost", "redhatvirtualization": //, "bm"
 				return true
 			}
 			return false
@@ -268,9 +278,23 @@ func extractImportantData(credentialSecret corev1.Secret) (map[string][]byte, er
 		returnData["cloud"] = credentialSecret.Data["cloud"]
 		returnData["clouds.yaml"] = credentialSecret.Data["clouds.yaml"]
 
+	case "redhatvirtualization":
+		returnData["ovirt-config.yaml"] = []byte(fmt.Sprintf(
+			rhvConfigTemplate,
+			credentialSecret.Data["ovirt_url"],
+			credentialSecret.Data["ovirt_username"],
+			credentialSecret.Data["ovirt_password"],
+			indent(2, credentialSecret.Data["ovirt_ca_bundle"]),
+		))
+
 	default:
 		err = errors.New("Label:" + ProviderTypeLabel + " is not supported for value: " + credType)
 	}
 
 	return returnData, err
+}
+
+func indent(indention int, v []byte) string {
+	newline := "\n" + strings.Repeat(" ", indention)
+	return strings.Replace(string(v), "\n", newline, -1)
 }

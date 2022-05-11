@@ -61,6 +61,8 @@ func getCopiedSecretForProvider(credentialType string) corev1.Secret {
 	case "ost":
 		dataValue["cloud"] = []byte(tokenValue)
 		dataValue["clouds.yaml"] = []byte(userValue)
+	case "redhatvirtualization":
+		dataValue["ovirt-config.yaml"] = []byte("ovirt_url: test\novirt_username: test\novirt_password: test\novirt_ca_bundle: -----BEGIN CERTIFICATE-----\ntest\n-----END CERTIFICATE-----")
 	default:
 		panic("Provider did not match " + credentialType)
 	}
@@ -93,6 +95,8 @@ func getCPSecretMetadata(credentialType string) corev1.Secret {
 		metadataValue = "password: " + tokenValue + "\nusername: " + userValue
 	case "ost":
 		metadataValue = "openstackCloud: " + tokenValue + "\nopenstackCloudsYaml: " + userValue
+	case "redhatvirtualization":
+		metadataValue = "ovirt_url: test\novirt_username: test\novirt_password: test\novirt_ca_bundle: -----BEGIN CERTIFICATE-----\ntest\n-----END CERTIFICATE-----"
 	}
 	return corev1.Secret{
 		ObjectMeta: v1.ObjectMeta{
@@ -147,7 +151,7 @@ func TestReconcileNoSecret(t *testing.T) {
 
 func TestReconcileNewCPSecret(t *testing.T) {
 
-	for _, providerName := range []string{"ans", "aws", "gcp", "vmw", "ost", "azr"} {
+	for _, providerName := range []string{"ans", "aws", "gcp", "vmw", "ost", "azr", "redhatvirtualization"} {
 
 		cps := getCPSecret()
 		cps.ObjectMeta.Labels = map[string]string{
@@ -280,7 +284,7 @@ func TestReconcileChildSecrets(t *testing.T) {
 
 func TestReconcileChildSecretsAllCloudProviders(t *testing.T) {
 
-	for _, provider := range []string{"aws", "gcp", "azr", "vmw", "ost"} {
+	for _, provider := range []string{"aws", "gcp", "azr", "vmw", "ost", "redhatvirtualization"} {
 		t.Logf("Testing credential type: %v", provider)
 
 		cps := getCPSecretMetadata(provider)
@@ -308,6 +312,8 @@ func TestReconcileChildSecretsAllCloudProviders(t *testing.T) {
 			cps.Data["metadata"] = []byte("password: " + tokenValue + "\nusername: NEW_VALUE")
 		case "ost":
 			cps.Data["metadata"] = []byte("openstackCloud: " + tokenValue + "\nopenstackCloudsYaml: NEW_VALUE")
+		case "redhatvirtualization":
+			cps.Data["metadata"] = []byte("ovirt_url: new\novirt_username: new\novirt_password: new\novirt_ca_bundle: -----BEGIN CERTIFICATE-----\nnew\n-----END CERTIFICATE-----")
 		}
 
 		cpsr.Update(context.Background(), &cps)
