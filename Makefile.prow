@@ -10,12 +10,12 @@ push: build
 .PHONY: compile
 compile:
 	go mod vendor
-	go mod tidy -compat=1.17
+	go mod tidy -compat=1.18
 	GOFLAGS="" go build -o build/_output/manager ./cmd/manager/main.go
 	GOFLAGS="" go build -o build/_output/old-provider-connection ./cmd/oldproviderconnection/main.go
 
 .PHONY: build
-build: 
+build:
 	docker build -f Dockerfile.prow . -t ${REPO_URL}/provider-credential-controller:${VERSION}
 
 .PHONY: unit-tests
@@ -37,4 +37,3 @@ scale-test:
 	go test ./controllers/ -run TestUpdateProviderSecretTest2 -timeout 30s -v -count=1
 	go test ./controllers/ -run TestUpdateProviderSecret -timeout 30s -v -count=1
 	go test ./controllers/ -run TestUpdateProviderSecretTest2 -timeout 30s -v -count=1
-	
