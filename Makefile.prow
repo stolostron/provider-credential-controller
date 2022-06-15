@@ -10,7 +10,7 @@ push: build
 .PHONY: compile
 compile:
 	go mod vendor
-	go mod tidy -compat=1.17
+	go mod tidy
 	GOFLAGS="" go build -o build/_output/manager ./cmd/manager/main.go
 	GOFLAGS="" go build -o build/_output/old-provider-connection ./cmd/oldproviderconnection/main.go
 
