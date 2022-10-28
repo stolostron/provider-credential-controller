@@ -1,6 +1,6 @@
 module github.com/stolostron/provider-credential-controller
 
-go 1.18
+go 1.19
 
 replace golang.org/x/crypto => golang.org/x/crypto v0.0.0-20220722155217-630584e8d5aa // CVE-2021-43565
 
