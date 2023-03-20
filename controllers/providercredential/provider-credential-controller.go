@@ -26,11 +26,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 )
 
-const CredentialHash = "credential-hash"
+const CredentialHash = "credential-hash" //#nosec G101
 const ProviderTypeLabel = "cluster.open-cluster-management.io/type"
 const copiedFromNamespaceLabel = "cluster.open-cluster-management.io/copiedFromNamespace"
 const copiedFromNameLabel = "cluster.open-cluster-management.io/copiedFromSecretName"
-const CredentialLabel = "cluster.open-cluster-management.io/credentials"
+const CredentialLabel = "cluster.open-cluster-management.io/credentials" //#nosec G101
 
 const rhvConfigTemplate = `ovirt_url: %s
 ovirt_username: %s
