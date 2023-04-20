@@ -32,6 +32,9 @@ spec:
       - command:
         - "./manager"
         - "-enable-leader-election"
+        - "--leader-election-lease-duration=137s"
+        - "--leader-election-renew-deadline=107s"
+        - "--leader-election-retry-period=26s"
         image: registry.ci.openshift.org/stolostron/2.3:provider-credential-controller
         imagePullPolicy: Always
         name: provider-credential-controller
@@ -52,6 +55,9 @@ spec:
       - command:
         - "./old-provider-connection"
         - "-enable-leader-election"
+        - "--leader-election-lease-duration=137s"
+        - "--leader-election-renew-deadline=107s"
+        - "--leader-election-retry-period=26s"
         image: registry.ci.openshift.org/stolostron/2.3:provider-credential-controller
         imagePullPolicy: Always
         name: old-provider-connection
