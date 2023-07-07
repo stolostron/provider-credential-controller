@@ -1,5 +1,7 @@
 -include /opt/build-harness/Makefile.prow
 
+export CGO_ENABLED=1
+
 .PHONY: push
 push: build
 	docker push ${REPO_URL}/provider-credential-controller:${VERSION}
