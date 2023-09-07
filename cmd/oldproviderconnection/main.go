@@ -14,8 +14,10 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
+	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	// +kubebuilder:scaffold:imports
 )
@@ -29,15 +31,19 @@ func init() {
 	_ = clientgoscheme.AddToScheme(scheme)
 
 	_ = corev1.AddToScheme(scheme)
-	// +kubebuilder:scaffold:scheme
 }
 
 func main() {
 	var metricsAddr string
+
 	var enableLeaderElection bool
+
 	var leaderElectionLeaseDuration time.Duration
+
 	var leaderElectionRenewDeadline time.Duration
+
 	var leaderElectionRetryPeriod time.Duration
+
 	flag.StringVar(&metricsAddr, "metrics-addr", ":8383", "The address the metric endpoint binds to.")
 	flag.BoolVar(&enableLeaderElection, "enable-leader-election", false,
 		"Enable leader election for controller manager. "+
@@ -80,14 +86,13 @@ func main() {
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:             scheme,
 		MetricsBindAddress: metricsAddr,
-		NewCache: cache.BuilderWithOptions(cache.Options{
-			SelectorsByObject: cache.SelectorsByObject{
+		NewCache: func(config *rest.Config, opts cache.Options) (cache.Cache, error) {
+			opts.ByObject = map[client.Object]cache.ByObject{
 				&corev1.Secret{}: {
 					Label: labels.SelectorFromSet(labels.Set{oldproviderconnection.CloudConnectionLabel: ""}),
-				},
-			},
+				}}
+			return cache.New(config, opts)
 		},
-		),
 		LeaderElection:   enableLeaderElection,
 		LeaderElectionID: "old-provider-connection-controller.open-cluster-management.io",
 		LeaseDuration:    &leaderElectionLeaseDuration,

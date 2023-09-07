@@ -7,7 +7,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/base64"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -19,6 +18,7 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/klog"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -62,7 +62,7 @@ func (r *ProviderCredentialSecretReconciler) Reconcile(ctx context.Context, req 
 
 	var secret corev1.Secret
 	if err := r.Get(ctx, req.NamespacedName, &secret); err != nil {
-		log.V(1).Info("Resource deleted")
+		log.V(0).Info("Resource deleted")
 		return ctrl.Result{}, err
 	}
 
@@ -80,14 +80,14 @@ func (r *ProviderCredentialSecretReconciler) Reconcile(ctx context.Context, req 
 		}
 	}
 
-	//We need to extract the specific secret.Data
+	// We need to extract the specific secret.Data
 	secretData, err := extractImportantData(secret)
 	if err != nil {
 		log.Error(err, "Failed to extract secret.Data[metadata] from "+secret.Namespace+"/"+secret.Name)
 		return ctrl.Result{}, err
 	}
 
-	log.V(1).Info("Calculate the current hash for provider credential secret " + secret.Namespace + "/" + secret.Name)
+	log.V(0).Info("Calculate the current hash for provider credential secret " + secret.Namespace + "/" + secret.Name)
 	secretBytes, err := json.Marshal(secretData)
 	if err != nil {
 		log.Error(err, "Failed to marshal secret data json for SHA256 hashing")
@@ -101,8 +101,8 @@ func (r *ProviderCredentialSecretReconciler) Reconcile(ctx context.Context, req 
 		return ctrl.Result{}, err
 	}
 
-	log.V(1).Info("ORIGINAL Provider hash: " + hex.EncodeToString(originalHash))
-	log.V(1).Info("NEW Provider hash: " + hex.EncodeToString(currentHash))
+	log.V(0).Info("ORIGINAL Provider hash: " + base64.StdEncoding.EncodeToString([]byte(originalHash)))
+	log.V(0).Info("NEW Provider hash: " + base64.StdEncoding.EncodeToString([]byte(currentHash)))
 
 	// If no hash is found, store the currentHash (this is for NEW or MIGRATED Provider Secrets)
 	if originalHash == nil {
@@ -124,11 +124,11 @@ func (r *ProviderCredentialSecretReconciler) Reconcile(ctx context.Context, req 
 		// Check if we found any copies
 		secretCount := len(secrets.Items)
 		if err != nil || secretCount == 0 {
-			log.V(1).Info("Did not find any copied secrets")
+			log.V(0).Info("Did not find any copied secrets")
 			return ctrl.Result{}, nil
 		}
 
-		log.V(1).Info("Found " + strconv.Itoa(secretCount) + " copies")
+		log.V(0).Info("Found " + strconv.Itoa(secretCount) + " copies")
 
 		// Loop through all retreived copies
 
@@ -155,12 +155,11 @@ func (r *ProviderCredentialSecretReconciler) Reconcile(ctx context.Context, req 
 				return ctrl.Result{}, err
 			}
 
-			log.V(1).Info("Child hash: " + hex.EncodeToString(childHash))
+			log.V(0).Info("Child hash: " + base64.StdEncoding.EncodeToString([]byte(childHash)))
 
 			// If both hashes match, the copied secret is from the Provider
 			if bytes.Compare(originalHash, childHash) == 0 {
-
-				log.V(1).Info("Child secret hash matches, update the child secret")
+				log.V(0).Info("Child secret hash matches, update the child secret")
 
 				childSecret.Data = secretData
 				if err := r.Client.Update(ctx, &childSecret); err != nil {
@@ -174,11 +173,12 @@ func (r *ProviderCredentialSecretReconciler) Reconcile(ctx context.Context, req 
 					childSecret.Namespace + "/" +
 					childSecret.Name +
 					", hash did not match")
+
+				klog.Infof("originalHash: %v", base64.StdEncoding.EncodeToString([]byte(originalHash)))
+				klog.Infof("childHash: %v", base64.StdEncoding.EncodeToString([]byte(childHash)))
 			}
 		}
-
 	} else {
-
 		log.V(0).Info("Provider secret data has not changed")
 
 		return ctrl.Result{}, nil
@@ -215,7 +215,7 @@ func (r *ProviderCredentialSecretReconciler) Reconcile(ctx context.Context, req 
 	if err != nil {
 		log.Error(err, "Failed to patch the Provider secret annotation with the new hash")
 	}
-	log.V(1).Info("Updated Provider secret hash")
+	log.V(0).Info("Updated Provider secret hash")
 
 	return ctrl.Result{}, nil
 }
@@ -248,15 +248,15 @@ func (r *ProviderCredentialSecretReconciler) SetupWithManager(mgr ctrl.Manager) 
 }
 
 func extractImportantData(credentialSecret corev1.Secret) (map[string][]byte, error) {
-
 	returnData := map[string][]byte{}
+
 	var err error
 
 	// NOTE: The hash is dependent on the KEY order.  Keys are sorted alphabetically when
 	//       kubernetes encodes from secret.stringData to secret.Data
 	credType := credentialSecret.ObjectMeta.Labels[ProviderTypeLabel]
-	switch credType {
 
+	switch credType {
 	case "ans":
 		returnData = credentialSecret.Data
 
