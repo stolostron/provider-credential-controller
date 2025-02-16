@@ -119,8 +119,8 @@ github.com/rogpeppe/go-internal v1.11.0 h1:cWPaGQEPrBb5/AsnsZesgZZ9yb1OQ+GOISoDN
 github.com/spf13/pflag v1.0.5 h1:iy+VFUOCP1a+8yFto/drg2CJ5u0yRoB7fZw3DKv/JXA=
 github.com/spf13/pflag v1.0.5/go.mod h1:McXfInJRrz4CZXVZOBLb0bTZqETkiAhM9Iw0y3An2Bg=
 github.com/stoewer/go-strcase v1.2.0/go.mod h1:IBiWB2sKIp3wVVQ3Y035++gc+knqhUQag1KpM8ahLw8=
-github.com/stolostron/library-go v0.0.0-20220727113621-f74e0852408a h1:H//pS8d6Oi4uYjGNFxhyA3mg/VVWO2FEIjpln6m5ckE=
-github.com/stolostron/library-go v0.0.0-20220727113621-f74e0852408a/go.mod h1:BbQ8BihpRXW6OaK6ZD1g28IkS8T6/DlYag9nJvivuq0=
+github.com/stolostron/library-go v0.0.0-20230104093626-beceb342d8ed h1:BYMBL/iFGw+0Nmchaiac8+vMp05MW+s1wFAdCmV5K+4=
+github.com/stolostron/library-go v0.0.0-20230104093626-beceb342d8ed/go.mod h1:BbQ8BihpRXW6OaK6ZD1g28IkS8T6/DlYag9nJvivuq0=
 github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
 github.com/stretchr/objx v0.4.0/go.mod h1:YvHI0jy2hoMjB+UWwv71VJQ9isScKT/TqJzVSSt89Yw=
 github.com/stretchr/objx v0.5.0/go.mod h1:Yh+to48EsGEfYuaHDzXPcE3xhTkx73EhmCGUpEOglKo=
