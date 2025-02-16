@@ -2,7 +2,7 @@ module github.com/stolostron/provider-credential-controller
 
 go 1.20
 
-replace golang.org/x/crypto => golang.org/x/crypto v0.32.0
+replace golang.org/x/crypto => golang.org/x/crypto v0.33.0
 
 require (
 	github.com/go-logr/logr v1.2.4
@@ -55,9 +55,9 @@ require (
 	go.uber.org/multierr v1.6.0 // indirect
 	golang.org/x/net v0.34.0 // indirect
 	golang.org/x/oauth2 v0.5.0 // indirect
-	golang.org/x/sys v0.29.0 // indirect
-	golang.org/x/term v0.28.0 // indirect
-	golang.org/x/text v0.21.0 // indirect
+	golang.org/x/sys v0.30.0 // indirect
+	golang.org/x/term v0.29.0 // indirect
+	golang.org/x/text v0.22.0 // indirect
 	golang.org/x/time v0.3.0 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.3.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
