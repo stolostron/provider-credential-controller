@@ -1,6 +1,8 @@
 module github.com/stolostron/provider-credential-controller
 
-go 1.20
+go 1.22
+
+toolchain go1.22.9
 
 replace golang.org/x/crypto => golang.org/x/crypto v0.32.0
 
@@ -61,7 +63,7 @@ require (
 	golang.org/x/time v0.3.0 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.3.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
-	google.golang.org/protobuf v1.30.0 // indirect
+	google.golang.org/protobuf v1.36.6 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	k8s.io/apiextensions-apiserver v0.27.2 // indirect
