@@ -7,7 +7,7 @@ toolchain go1.23.7
 replace golang.org/x/crypto => golang.org/x/crypto v0.35.0
 
 require (
-	github.com/go-logr/logr v1.2.4
+	github.com/go-logr/logr v1.4.2
 	github.com/stolostron/library-go v0.0.0-20230104093626-beceb342d8ed
 	github.com/stretchr/testify v1.8.1
 	go.uber.org/zap v1.24.0
