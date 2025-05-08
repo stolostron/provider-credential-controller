@@ -16,6 +16,11 @@ compile:
 	GOFLAGS="" go build -o build/_output/manager ./cmd/manager/main.go
 	GOFLAGS="" go build -o build/_output/old-provider-connection ./cmd/oldproviderconnection/main.go
 
+.PHONY: compile-konflux
+compile-konflux:
+  GOFLAGS="" go build -o build/_output/manager ./cmd/manager/main.go
+	GOFLAGS="" go build -o build/_output/old-provider-connection ./cmd/oldproviderconnection/main.go
+
 .PHONY: build
 build:
 	docker build -f Dockerfile.prow . -t ${REPO_URL}/provider-credential-controller:${VERSION}
