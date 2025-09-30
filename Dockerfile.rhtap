@@ -8,7 +8,8 @@ RUN make -f Makefile.prow compile-konflux
 FROM registry.access.redhat.com/ubi9/ubi-minimal:latest
 
 LABEL \
-    name="provider-credential-controller" \
+    name="multicluster-engine/provider-credential-controller-rhel9" \
+    cpe="cpe:/a:redhat:multicluster_engine:2.9::el9" \
     com.redhat.component="provider-credential-controller" \
     description="Provider credential controller" \
     maintainer="acm-contact@redhat.com" \
