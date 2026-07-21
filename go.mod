@@ -1,6 +1,6 @@
 module github.com/stolostron/provider-credential-controller
 
-go 1.25.0
+go 1.26
 
 replace golang.org/x/crypto => golang.org/x/crypto v0.53.0
 
