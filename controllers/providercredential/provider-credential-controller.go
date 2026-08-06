@@ -16,8 +16,11 @@ import (
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/tools/record"
 	"k8s.io/klog"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -31,6 +34,36 @@ const ProviderTypeLabel = "cluster.open-cluster-management.io/type"
 const copiedFromNamespaceLabel = "cluster.open-cluster-management.io/copiedFromNamespace"
 const copiedFromNameLabel = "cluster.open-cluster-management.io/copiedFromSecretName"
 const CredentialLabel = "cluster.open-cluster-management.io/credentials" //#nosec G101
+
+// managedClusterGVK identifies the cluster-scoped ManagedCluster resource
+// (group cluster.open-cluster-management.io, version v1). It is looked up
+// via unstructured.Unstructured rather than the typed
+// open-cluster-management.io/api client to avoid taking on that module as a
+// dependency here.
+var managedClusterGVK = schema.GroupVersionKind{
+	Group:   "cluster.open-cluster-management.io",
+	Version: "v1",
+	Kind:    "ManagedCluster",
+}
+
+// managedClusterJoinedCondition is the status.conditions[].type value the
+// hub's registration controller sets on a ManagedCluster once the agent has
+// completed the CA-signed, CSR-approved double opt-in join handshake (see
+// open-cluster-management.io/api/cluster/v1: ManagedClusterConditionJoined).
+// It is not attacker-assertible: creating a ManagedCluster requires
+// cluster-scoped RBAC normally reserved for hub admins/registration
+// components, and even then only the hub's own controller can flip this
+// condition to True as the result of a real agent registering.
+const managedClusterJoinedCondition = "ManagedClusterJoined"
+
+// UnauthorizedCredentialCopyEventReason is the Warning Event reason recorded
+// on a child secret when it is skipped because its namespace is not a
+// Joined ManagedCluster. It gives operators visibility (kubectl describe /
+// events on the child) and doubles as a detection signal for exactly the
+// attack this gate defends against - anything watching for Warning events
+// with this reason cluster-wide should treat it as a potential credential
+// theft attempt, not just a benign misconfiguration.
+const UnauthorizedCredentialCopyEventReason = "UnauthorizedCredentialCopy"
 
 const rhvConfigTemplate = `ovirt_url: %s
 ovirt_username: %s
@@ -46,6 +79,7 @@ type ProviderCredentialSecretReconciler struct {
 	APIReader client.Reader
 	Log       logr.Logger
 	Scheme    *runtime.Scheme
+	Recorder  record.EventRecorder
 }
 
 func generateHash(valueBytes []byte) ([]byte, error) {
@@ -54,6 +88,44 @@ func generateHash(valueBytes []byte) ([]byte, error) {
 	_, err := hash.Write(valueBytes)
 
 	return hash.Sum(nil), err
+}
+
+// isJoinedManagedClusterNamespace returns true iff "namespace" is the name
+// of a ManagedCluster that has joined the hub.
+//
+// Copied provider-credential secrets are expected to live in a managed
+// cluster's namespace, which the hub creates and controls; a namespace name
+// only becomes a real, Joined ManagedCluster as the outcome of the
+// registration double opt-in (spec.hubAcceptsClient set by a hub
+// cluster-admin, followed by a CSR-approved agent handshake). A tenant
+// confined to a namespace they control cannot manufacture a same-named
+// ManagedCluster in the Joined state, so this check establishes that
+// "namespace" is hub-sanctioned rather than attacker-staged. Any lookup
+// error (including NotFound) fails closed.
+func isJoinedManagedClusterNamespace(ctx context.Context, reader client.Reader, namespace string) bool {
+	mc := &unstructured.Unstructured{}
+	mc.SetGroupVersionKind(managedClusterGVK)
+
+	if err := reader.Get(ctx, types.NamespacedName{Name: namespace}, mc); err != nil {
+		return false
+	}
+
+	conditions, found, err := unstructured.NestedSlice(mc.Object, "status", "conditions")
+	if err != nil || !found {
+		return false
+	}
+
+	for _, c := range conditions {
+		condition, ok := c.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		if condition["type"] == managedClusterJoinedCondition && condition["status"] == "True" {
+			return true
+		}
+	}
+
+	return false
 }
 
 func (r *ProviderCredentialSecretReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
@@ -137,6 +209,23 @@ func (r *ProviderCredentialSecretReconciler) Reconcile(ctx context.Context, req 
 			childSecret := secrets.Items[i]
 
 			log.V(0).Info("Child secret:" + childSecret.Namespace + "/" + childSecret.Name)
+
+			// The copiedFrom* labels are self-asserted by the child and the
+			// hash gate below only proves knowledge of the prior plaintext,
+			// so neither establishes that the child lives in a namespace
+			// the hub actually controls. Require that the child's
+			// namespace be a Joined ManagedCluster before propagating.
+			if !isJoinedManagedClusterNamespace(ctx, r.APIReader, childSecret.Namespace) {
+				msg := "namespace " + childSecret.Namespace +
+					" is not a Joined ManagedCluster; refusing to propagate credentials from " +
+					secret.Namespace + "/" + secret.Name + " into " +
+					childSecret.Namespace + "/" + childSecret.Name
+				log.V(0).Info("|--X Skipping secret " + childSecret.Namespace + "/" + childSecret.Name + ": " + msg)
+				if r.Recorder != nil {
+					r.Recorder.Event(&childSecret, corev1.EventTypeWarning, UnauthorizedCredentialCopyEventReason, msg)
+				}
+				continue
+			}
 
 			secretBytes, err := json.Marshal(childSecret.Data)
 			if err != nil {
