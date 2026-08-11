@@ -110,6 +110,7 @@ func main() {
 		APIReader: mgr.GetAPIReader(),
 		Log:       ctrl.Log.WithName("controllers").WithName("ProviderCredentialSecretReconciler"),
 		Scheme:    mgr.GetScheme(),
+		Recorder:  mgr.GetEventRecorderFor("provider-credential-controller"),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "ProviderCredentialSecretReconciler")
 		os.Exit(1)
