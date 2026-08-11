@@ -10,8 +10,10 @@ import (
 	"go.uber.org/zap/zapcore"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	clientfake "sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
@@ -112,6 +114,26 @@ func getCPSecretMetadata(credentialType string) corev1.Secret {
 	}
 }
 
+// newManagedCluster returns an unstructured ManagedCluster object with the
+// given name and, if joined is true, a "ManagedClusterJoined: True" status
+// condition, for use as an APIReader fixture in tests.
+func newManagedCluster(name string, joined bool) *unstructured.Unstructured {
+	mc := &unstructured.Unstructured{}
+	mc.SetGroupVersionKind(managedClusterGVK)
+	mc.SetName(name)
+
+	if joined {
+		_ = unstructured.SetNestedSlice(mc.Object, []interface{}{
+			map[string]interface{}{
+				"type":   managedClusterJoinedCondition,
+				"status": "True",
+			},
+		}, "status", "conditions")
+	}
+
+	return mc
+}
+
 func GetProviderCredentialSecretReconciler() *ProviderCredentialSecretReconciler {
 
 	// Log levels: DebugLevel  InfoLevel
@@ -122,6 +144,7 @@ func GetProviderCredentialSecretReconciler() *ProviderCredentialSecretReconciler
 		APIReader: clientfake.NewFakeClientWithScheme(s),
 		Log:       ctrl.Log.WithName("controllers").WithName("ProviderCredentialSecretReconciler"),
 		Scheme:    s,
+		Recorder:  record.NewFakeRecorder(10),
 	}
 }
 
@@ -448,4 +471,103 @@ func TestReconcileChildSecretsInjectionAttack(t *testing.T) {
 
 	// Check that it is the secondary value
 	assert.Equal(t, result.Data[TOKEN], []byte("something-new"), "Token should not have changed")
+}
+
+// TestReconcileChildSecretsManagedClusterGate verifies that a tenant who
+// knows the byte-exact PRIOR credential payload cannot capture the ROTATED
+// credential by labelling a secret in their own namespace as a copy. Only
+// children whose namespace is a Joined ManagedCluster receive the new data;
+// an attacker child that passes the legacy hash gate but sits in an
+// arbitrary namespace (no ManagedCluster, or one that hasn't joined) is
+// skipped.
+func TestReconcileChildSecretsManagedClusterGate(t *testing.T) {
+
+	cps := getCPSecret()
+	cps.ObjectMeta.Labels = map[string]string{
+		ProviderTypeLabel: "ans",
+	}
+
+	cpsr := GetProviderCredentialSecretReconciler()
+	cpsr.Client = clientfake.NewFakeClient(&cps)
+
+	// Try #1 initializes the credential-hash on the source.
+	_, err := cpsr.Reconcile(context.Background(), getRequest())
+	assert.Nil(t, err, "Nil, when Cloud Provider secret found, and hash is set")
+
+	// Legitimate child in a real, Joined ManagedCluster namespace.
+	authorized := getCPSecret()
+	authorized.ObjectMeta.Name = "cluster-creds"
+	authorized.ObjectMeta.Namespace = ClusterNamespace1
+	authorized.ObjectMeta.Labels = map[string]string{
+		copiedFromNamespaceLabel: CPSNamespace,
+		copiedFromNameLabel:      CPSName,
+	}
+
+	// Attacker child in a tenant namespace with no ManagedCluster at all:
+	// identical prior plaintext, forged copiedFrom* labels.
+	attacker := getCPSecret()
+	attacker.ObjectMeta.Name = "catch"
+	attacker.ObjectMeta.Namespace = "tenant-x"
+	attacker.ObjectMeta.Labels = map[string]string{
+		copiedFromNamespaceLabel: CPSNamespace,
+		copiedFromNameLabel:      CPSName,
+	}
+
+	// Child in a namespace whose ManagedCluster exists but has not joined
+	// (e.g. still mid-registration) - must also be skipped.
+	pending := getCPSecret()
+	pending.ObjectMeta.Name = "pending-creds"
+	pending.ObjectMeta.Namespace = ClusterNamespace2
+	pending.ObjectMeta.Labels = map[string]string{
+		copiedFromNamespaceLabel: CPSNamespace,
+		copiedFromNameLabel:      CPSName,
+	}
+
+	// Admin rotates the source credential.
+	cpsr.Get(context.Background(), getRequest().NamespacedName, &cps)
+	cps.Data[TOKEN] = []byte("rotated-token")
+	cpsr.Update(context.Background(), &cps)
+
+	cpsr.Create(context.Background(), &authorized)
+	cpsr.Create(context.Background(), &attacker)
+	cpsr.Create(context.Background(), &pending)
+
+	cpsr.APIReader = clientfake.NewFakeClient(
+		&cps, &authorized, &attacker, &pending,
+		newManagedCluster(ClusterNamespace1, true),
+		newManagedCluster(ClusterNamespace2, false),
+	)
+
+	// Try #2 propagates the rotation.
+	_, err = cpsr.Reconcile(context.Background(), getRequest())
+	assert.Nil(t, err, "Nil, when Cloud Provider secret found")
+
+	got := corev1.Secret{}
+	cpsr.Get(context.Background(), types.NamespacedName{Namespace: authorized.Namespace, Name: authorized.Name}, &got)
+	assert.Equal(t, []byte("rotated-token"), got.Data[TOKEN],
+		"child in a Joined ManagedCluster namespace must receive the rotated credential")
+
+	got = corev1.Secret{}
+	cpsr.Get(context.Background(), types.NamespacedName{Namespace: attacker.Namespace, Name: attacker.Name}, &got)
+	assert.Equal(t, []byte(tokenValue), got.Data[TOKEN],
+		"child in a namespace with no ManagedCluster must NOT receive the rotated credential even when its hash matches")
+
+	got = corev1.Secret{}
+	cpsr.Get(context.Background(), types.NamespacedName{Namespace: pending.Namespace, Name: pending.Name}, &got)
+	assert.Equal(t, []byte(tokenValue), got.Data[TOKEN],
+		"child in a namespace whose ManagedCluster has not Joined must NOT receive the rotated credential")
+
+	// Skipping each of the two unauthorized children must have raised a
+	// Warning Event, giving operators visibility and a detection signal.
+	fakeRecorder := cpsr.Recorder.(*record.FakeRecorder)
+	close(fakeRecorder.Events)
+	var events []string
+	for e := range fakeRecorder.Events {
+		events = append(events, e)
+	}
+	assert.Len(t, events, 2, "expected one Warning event per skipped child secret")
+	for _, e := range events {
+		assert.Contains(t, e, "Warning")
+		assert.Contains(t, e, UnauthorizedCredentialCopyEventReason)
+	}
 }
