@@ -5,7 +5,7 @@ COPY . .
 
 RUN make -f Makefile.prow compile-konflux
 
-FROM registry.access.redhat.com/ubi9/ubi-minimal:latest
+FROM registry.redhat.io/ubi9/ubi-minimal-pqc:latest
 
 LABEL \
       url="https://github.com/stolostron/provider-credential-controller" \
