@@ -3,7 +3,7 @@ FROM registry.redhat.io/openshift/golang-builder:golang-builder-v1.26-rhel9 AS b
 WORKDIR /go/src/github.com/stolostron/provider-credential-controller
 COPY . .
 
-RUN make -f Makefile.prow compile-konflux
+RUN CGO_ENABLED=1 GOEXPERIMENT=strictfipsruntime make -f Makefile.prow compile-konflux
 
 FROM registry.redhat.io/ubi9/ubi-minimal-pqc:latest
 
